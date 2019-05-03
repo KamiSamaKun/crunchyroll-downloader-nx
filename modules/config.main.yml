@@ -1,0 +1,17 @@
+#Crunchyroll Downloader NX configuration v1
+bin:
+  ffmpeg: ${__dirname}/modules/ffmpeg
+  mkvmerge: ${__dirname}/modules/mkvtoolnix/mkvmerge
+dir:
+  content: ${__dirname}/videos/
+  trash: ${__dirname}/videos/_trash/
+cli:
+  releaseGroup: CR
+  fileSuffix: SIZEp
+  videoQuality: 720p
+  dubLanguage: jpn
+  mp4mux: false
+  noCleanUp: false
+  nServer: 1
+  oldSubs: false
+#eof
