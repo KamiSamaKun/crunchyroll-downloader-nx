@@ -197,7 +197,7 @@ const api = {
 if(argv.auth){
     doAuth();
 }
-else if(argv.search && argv.search.length > 3){
+else if(argv.search && argv.search.length > 2){
     doSearch();
 }
 else if(argv.s && !isNaN(parseInt(argv.s,10)) && parseInt(argv.s,10) > 0){
@@ -222,18 +222,8 @@ async function doAuth(){
         console.log(`[ERROR] Authentication failed!`);
         return;
     }
-    let newReqCookies = shlp.cookie.parse(auth.res.headers['set-cookie']);
-    newReqCookies = { 
-        c_userid: newReqCookies.c_userid,
-        c_userkey: newReqCookies.c_userkey,
-        session_id: newReqCookies.session_id
-    };
-    const sessionExp = 60*60;
-    newReqCookies.session_id.expires = new Date(Date.now() + sessionExp);
-    newReqCookies.session_id['Max-Age'] = sessionExp;
-    fs.writeFileSync(sessionFile,yaml.stringify(newReqCookies));
+    setNewCookie(auth.res.headers['set-cookie'], true);
     console.log(`[INFO] Authentication successful!`);
-    // console.log(yaml.stringify(newReqCookies));
 }
 
 async function doSearch(){
@@ -562,7 +552,6 @@ async function getMedia(mMeta){
             console.log(`[INFO] Output filename: ${fnOutput}`);
             if(argv.skipdl){
                 console.log(`[INFO] Video download skiped!\n`);
-                argv.nosubs = false;
             }
             else{
                 // request
@@ -606,104 +595,106 @@ async function getMedia(mMeta){
     
     // download subs
     sxList = [];
-    console.log(`[INFO] Downloading subtitles...`);
-    if(!getOldSubs && mediaData.subtitles.length < 1){
-        console.log(`[WARN] Can't find urls for subtitles! If you downloading sub version, try use oldsubs cli option`);
-    }
-    if(getOldSubs){
-        let mediaIdSubs = mMeta.m;
-        console.log(`[INFO] Trying get subtitles in old format...`);
-        if(hlsStream == ''){
-            let reqParams = {
-                req: 'RpcApiVideoPlayer_GetStandardConfig',
-                media_id: mMeta.m,
-                video_format: qualities['480p'][0],
-                video_quality: qualities['480p'][1],
-                aff: 'crunchyroll-website',
-                current_page: domain
-            };
-            let streamData = await getData(`${domain}/xml/`,{"qs":reqParams});
-            if(!streamData.ok){
-                mediaIdSubs = '0';
-            }
-            else{
-                let mediaMetadataXml = xhtml2js({ src: streamData.res.body, el: 'media_metadata', isXml: true }).$;
-                mediaIdSubs = mediaMetadataXml.find('media_id').text();
-            }
+    if(!argv.skipsubs){
+        console.log(`[INFO] Downloading subtitles...`);
+        if(!getOldSubs && mediaData.subtitles.length < 1){
+            console.log(`[WARN] Can't find urls for subtitles! If you downloading sub version, try use oldsubs cli option`);
         }
-        if(parseInt(mediaIdSubs)>0){
-            let subsListApi = await getData(`${api.subs_list}${mediaIdSubs}`);
-            if(subsListApi.ok){
-                // parse list
-                let subsListXml = xhtml2js({ 
-                    src: subsListApi.res.body, 
-                    el: 'subtitles', 
-                    isXml: true, 
-                    parse:true 
-                }).data.children;
-                // subsDecrypt
-                for(let s=0;s<subsListXml.length;s++){
-                    if(subsListXml[s].tagName=='subtitle'){
-                        let subsId = subsListXml[s].attribs.id;
-                        let subsXmlApi = await getData(`${api.subs_file}${subsId}`);
-                        if(subsXmlApi.ok){
-                            let subXml      = crunchySubs.decrypt(subsListXml[s].attribs.id,subsXmlApi.res.body);
-                            if(subXml.ok){
-                                let subsParsed  = crunchySubs.parse(subsListXml[s].attribs,subXml.data);
-                                let subsExtFile = [
-                                    subsParsed.id,
-                                    langCodes[subsParsed.langCode][0],
-                                    langCodes[subsParsed.langCode][1]
-                                ].join(' ');
-                                let subsFile = `${fnOutput}.${subsExtFile}.ass`;
-                                fs.writeFileSync(subsFile,subsParsed.src);
-                                console.log(`[INFO] Downloaded: ${subsFile}`);
-                                sxList.push({
-                                    id: subsParsed.id,
-                                    langCode: langCodes[subsParsed.langCode][0],
-                                    langStr: langCodes[subsParsed.langCode][1],
-                                    title: subsParsed.title,
-                                    file: subsFile,
-                                    // isDefault: subsParsed.isDefault,
-                                });
+        if(getOldSubs){
+            let mediaIdSubs = mMeta.m;
+            console.log(`[INFO] Trying get subtitles in old format...`);
+            if(hlsStream == ''){
+                let reqParams = {
+                    req: 'RpcApiVideoPlayer_GetStandardConfig',
+                    media_id: mMeta.m,
+                    video_format: qualities['480p'][0],
+                    video_quality: qualities['480p'][1],
+                    aff: 'crunchyroll-website',
+                    current_page: domain
+                };
+                let streamData = await getData(`${domain}/xml/`,{"qs":reqParams});
+                if(!streamData.ok){
+                    mediaIdSubs = '0';
+                }
+                else{
+                    let mediaMetadataXml = xhtml2js({ src: streamData.res.body, el: 'media_metadata', isXml: true }).$;
+                    mediaIdSubs = mediaMetadataXml.find('media_id').text();
+                }
+            }
+            if(parseInt(mediaIdSubs)>0){
+                let subsListApi = await getData(`${api.subs_list}${mediaIdSubs}`);
+                if(subsListApi.ok){
+                    // parse list
+                    let subsListXml = xhtml2js({ 
+                        src: subsListApi.res.body, 
+                        el: 'subtitles', 
+                        isXml: true, 
+                        parse:true 
+                    }).data.children;
+                    // subsDecrypt
+                    for(let s=0;s<subsListXml.length;s++){
+                        if(subsListXml[s].tagName=='subtitle'){
+                            let subsId = subsListXml[s].attribs.id;
+                            let subsXmlApi = await getData(`${api.subs_file}${subsId}`);
+                            if(subsXmlApi.ok){
+                                let subXml      = crunchySubs.decrypt(subsListXml[s].attribs.id,subsXmlApi.res.body);
+                                if(subXml.ok){
+                                    let subsParsed  = crunchySubs.parse(subsListXml[s].attribs,subXml.data);
+                                    let subsExtFile = [
+                                        subsParsed.id,
+                                        langCodes[subsParsed.langCode][0],
+                                        langCodes[subsParsed.langCode][1]
+                                    ].join(' ');
+                                    let subsFile = `${fnOutput}.${subsExtFile}.ass`;
+                                    fs.writeFileSync(subsFile,subsParsed.src);
+                                    console.log(`[INFO] Downloaded: ${subsFile}`);
+                                    sxList.push({
+                                        id: subsParsed.id,
+                                        langCode: langCodes[subsParsed.langCode][0],
+                                        langStr: langCodes[subsParsed.langCode][1],
+                                        title: subsParsed.title,
+                                        file: subsFile,
+                                        // isDefault: subsParsed.isDefault,
+                                    });
+                                }
                             }
                         }
                     }
+                }
+                if(sxList.length>0){
+                    // console.log(yaml.stringify(sxList));
+                }
+            }
+            else{
+                console.log(`[ERR] Can't get video id for subtitles list!`);
+            }
+        }
+        else if(mediaData.subtitles.length > 0){
+            for( s of mediaData.subtitles ){
+                let subsAssApi = await getData(s.url);
+                if(subsAssApi.ok){
+                    let subsParsed = {};
+                    subsParsed.id = s.url.match(/_(\d+)\.txt\?/)[1];
+                    subsParsed.langCode = s.language.match(/(\w{2})(\w{2})/);
+                    subsParsed.langCode = `${subsParsed.langCode[1]} - ${subsParsed.langCode[2]}`.toLowerCase();
+                    subsParsed.langStr  = langCodes[subsParsed.langCode][1];
+                    subsParsed.langCode = langCodes[subsParsed.langCode][0];
+                    subsParsed.title    = subsAssApi.res.body.split('\r\n')[1].replace(/^Title: /,'');
+                    let subsExtFile = [
+                        subsParsed.id,
+                        subsParsed.langCode,
+                        subsParsed.langStr
+                    ].join(' ');
+                    let subsFile = `${fnOutput}.${subsExtFile}.ass`;
+                    fs.writeFileSync(subsFile,subsAssApi.res.body);
+                    console.log(`[INFO] Downloaded: ${subsFile}`);
+                    subsParsed.file = subsFile;
+                    sxList.push(subsParsed);
                 }
             }
             if(sxList.length>0){
                 // console.log(yaml.stringify(sxList));
             }
-        }
-        else{
-            console.log(`[ERR] Can't get video id for subtitles list!`);
-        }
-    }
-    else if(mediaData.subtitles.length > 0){
-        for( s of mediaData.subtitles ){
-            let subsAssApi = await getData(s.url);
-            if(subsAssApi.ok){
-                let subsParsed = {};
-                subsParsed.id = s.url.match(/_(\d+)\.txt\?/)[1];
-                subsParsed.langCode = s.language.match(/(\w{2})(\w{2})/);
-                subsParsed.langCode = `${subsParsed.langCode[1]} - ${subsParsed.langCode[2]}`.toLowerCase();
-                subsParsed.langStr  = langCodes[subsParsed.langCode][1];
-                subsParsed.langCode = langCodes[subsParsed.langCode][0];
-                subsParsed.title    = subsAssApi.res.body.split('\r\n')[1].replace(/^Title: /,'');
-                let subsExtFile = [
-                    subsParsed.id,
-                    subsParsed.langCode,
-                    subsParsed.langStr
-                ].join(' ');
-                let subsFile = `${fnOutput}.${subsExtFile}.ass`;
-                fs.writeFileSync(subsFile,subsAssApi.res.body);
-                console.log(`[INFO] Downloaded: ${subsFile}`);
-                subsParsed.file = subsFile;
-                sxList.push(subsParsed);
-            }
-        }
-        if(sxList.length>0){
-            // console.log(yaml.stringify(sxList));
         }
     }
     
@@ -739,32 +730,20 @@ async function muxStreams(){
     if(!argv.mp4 && cfg.bin.mkvmerge){
         let mkvmux  = [];
         // defaults
-        mkvmux.push(`--output`);
-        mkvmux.push(`${fnOutput}.mkv`);
-        mkvmux.push(`--disable-track-statistics-tags`);
-        mkvmux.push(`--engage`);
-        mkvmux.push(`no_variable_data`);
+        mkvmux.push(`--output`,`${fnOutput}.mkv`);
+        mkvmux.push(`--disable-track-statistics-tags`,`--engage`,`no_variable_data`);
         // video
-        mkvmux.push(`--track-name`);
-        mkvmux.push(`0:[${argv.ftag}]`);
-        mkvmux.push(`--language`);
-        mkvmux.push(`1:${audioDub}`);
-        mkvmux.push(`--video-tracks`);
-        mkvmux.push(`0`);
-        mkvmux.push(`--audio-tracks`);
-        mkvmux.push(`1`);
-        mkvmux.push(`--no-subtitles`);
-        mkvmux.push(`--no-attachments`);
+        mkvmux.push(`--track-name`,`0:[${argv.ftag}]`);
+        mkvmux.push(`--language`,`1:${audioDub}`);
+        mkvmux.push(`--video-tracks`,`0`,`--audio-tracks`,`1`);
+        mkvmux.push(`--no-subtitles`,`--no-attachments`);
         mkvmux.push(`${fnOutput}.ts`);
         // subtitles
         if(addSubs){
             for(let t in sxList){
-                mkvmux.push(`--track-name`);
-                mkvmux.push(`0:${sxList[t].langStr} / ${sxList[t].title}`);
-                mkvmux.push(`--language`);
-                mkvmux.push(`0:${sxList[t].langCode}`);
-                mkvmux.push(`--default-track`);
-                mkvmux.push(`0:no`);
+                mkvmux.push(`--track-name`,`0:${sxList[t].langStr} / ${sxList[t].title}`);
+                mkvmux.push(`--language`,`0:${sxList[t].langCode}`);
+                mkvmux.push(`--default-track`,`0:no`);
                 mkvmux.push(`${sxList[t].file}`);
             }
         }
@@ -848,19 +827,23 @@ async function getData(durl, params){
         }
     }
     // if auth
-    let cookie = '';
-    if(session.c_userid && session.c_userkey){
-        cookie = shlp.cookie.make(session,['c_userid','c_userkey']);
+    let cookie = [];
+    if(typeof session.c_userid != "undefined" && typeof session.c_userkey != "undefined"){
+        cookie.push('c_userid', 'c_userkey');
     }
-    if(session.session_id){
-        cookie +=  ( cookie != '' ? '; ' : '' ) + shlp.cookie.make(session,['session_id']);
+    if(checkSessId(session.session_id) && !argv.nosess){
+        cookie.push('session_id');
     }
-    cookie += ( cookie != '' ? '; ' : '' ) + 'c_locale=enUS';
     if(!params.skipCookies){
-        options.headers.Cookie = cookie;
+        cookie.push('c_locale');
+        options.headers.Cookie =
+            shlp.cookie.make(Object.assign({c_locale:{value:'enUS'}},session),cookie);
     }
     try {
         let res = await got(options);
+        if(!params.skipCookies && res.headers['set-cookie']){
+            setNewCookie(res.headers['set-cookie']);
+        }
         return {
             ok: true,
             res,
@@ -878,6 +861,35 @@ async function getData(durl, params){
             error,
         };
     }
+}
+function setNewCookie(setCookie, isAuth){
+    let cookieUpdated = [];
+    setCookie = shlp.cookie.parse(setCookie);
+    if(isAuth || setCookie.c_userid){
+        session.c_userid = setCookie.c_userid;
+        cookieUpdated.push('c_userid');
+    }
+    if(isAuth || setCookie.c_userkey){
+        session.session_id = setCookie.c_userid;
+        cookieUpdated.push('c_userkey');
+    }
+    if(isAuth || argv.nosess || setCookie.session_id && !checkSessId(session.session_id)){
+        const sessionExp = 60*60;
+        session.session_id            = setCookie.session_id;
+        session.session_id.expires    = new Date(Date.now() + sessionExp*1000);
+        session.session_id['Max-Age'] = sessionExp.toString();
+        cookieUpdated.push('session_id');
+    }
+    if(cookieUpdated.length > 0){
+        fs.writeFileSync(sessionFile,yaml.stringify(session));
+        console.log(`[INFO] Cookies was updated! (${cookieUpdated.join(',')})\n`);
+    }
+}
+function checkSessId(session_id){
+    return     typeof session_id         != "undefined"
+            && typeof session_id.expires != "undefined"
+            && Date.now() < new Date(session_id.expires).getTime()
+            ?  true : false;
 }
 function buildProxyUrl(proxyBaseUrl,proxyAuth){
     let proxyCfg = new URL(proxyBaseUrl);
