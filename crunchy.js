@@ -47,17 +47,6 @@ if(fs.existsSync(sessionFile)){
     session = yaml.parse(fs.readFileSync(sessionFile, 'utf8'));
 }
 
-// qualities
-const qualities = {
-    // type : format, quality
-    '240p':  [102,20],
-    '360p':  [106,60],
-    '480p':  [106,61],
-    '720p':  [106,62],
-    '1080p': [108,80],
-    'max':   [108,80]
-};
-
 // langs
 const dubLangs = {
     'English':    'eng',
@@ -110,7 +99,7 @@ let argv = yargs
     
     // quality
     .describe('q','Video Quality')
-    .choices('q', Object.keys(qualities))
+    .choices('q',['240p','360p','480p','720p','1080p','max'])
     .default('q',cfg.cli.videoQuality)
     
     // set dub
@@ -119,8 +108,8 @@ let argv = yargs
     .default('dub', cfg.cli.dubLanguage)
     
     // server
-    .describe('x','Select server (1 is vrv.co, 2...3 is dlvr1.net)')
-    .choices('x', [1, 2, 3])
+    .describe('x','Select server')
+    .choices('x', [1, 2, 3, 4])
     .default('x', cfg.cli.nServer)
     
     // oldsubs api
@@ -486,6 +475,7 @@ async function getMedia(mMeta){
     // download stream
     if(hlsStream == ''){
         console.log(`[ERROR] No available full streams!`);
+        argv.skipmux = true;
     }
     else{
         // get
@@ -497,55 +487,69 @@ async function getMedia(mMeta){
         }
         // parse
         let plQualityLinkList = m3u8(streamPlaylist.res.body);
-        // contain
-        let plQuality = {};
-        let plQualityAlt = {};
-        let plQualityStr = [];
-        let pl_max = 0;
-        // check
+        // main servers
+        let mainServersList = [
+            'v.vrv.co',
+            'a-vrv.akamaized.net'
+        ];
+        // variables
+        let plServerList = [],
+            plStreams    = {},
+            plQualityStr = [],
+            plMaxQuality = 240;
+        // set variables
         for(let s of plQualityLinkList.playlists){
-            let pl_quality = s.attributes.RESOLUTION.height;
-            pl_max = pl_max < pl_quality ? pl_quality : pl_max;
-            let pl_BANDWIDTH = Math.round(s.attributes.BANDWIDTH/1024);
-            let pl_url = s.uri;
-            let dl_domain = pl_url.split('/')[2];
-            if(typeof plQualityAlt[`${pl_quality}p`] == 'undefined'){
-                plQualityAlt[`${pl_quality}p`] = [];
+            let plResolution = s.attributes.RESOLUTION.height;
+            let plResText    = `${plResolution}p`;
+            plMaxQuality = plMaxQuality < plResolution ? plResolution : plMaxQuality;
+            let plUrlDl  = s.uri;
+            let plServer = plUrlDl.split('/')[2];
+            if(!plServerList.includes(plServer)){
+                plServerList.push(plServer);
             }
-            let qualityStrAdd   = `${pl_quality}p (${pl_BANDWIDTH}KiB/s)`;
-            let qualityStrRegx  = new RegExp(qualityStrAdd.replace(/(\(|\)|\/)/g,'\\$1'),'m');
-            let qualityStrMatch = !plQualityStr.join('\r\n').match(qualityStrRegx);
-            if(dl_domain.match(/.vrv.co$/)){
-                if(qualityStrMatch){
-                    plQualityStr.push(qualityStrAdd);
-                }
-                plQuality[`${pl_quality}p`] = { "url": pl_url };
+            if(!Object.keys(plStreams).includes(plServer)){
+                plStreams[plServer] = {};
+            }
+            if(plStreams[plServer][plResText] && plStreams[plServer][plResText] != plUrlDl){
+                console.log(`[WARN] Non duplicate url for ${plServer} detected, please report to developer!`);
             }
             else{
-                if(qualityStrMatch){
-                    plQualityStr.push(qualityStrAdd);
-                }
-                plQualityAlt[`${pl_quality}p`].push({ "url": pl_url });
+                plStreams[plServer][plResText] = plUrlDl;
+            }
+            // set plQualityStr
+            let plBandwidth  = Math.round(s.attributes.BANDWIDTH/1024);
+            if(plResolution<1000){
+                plResolution = plResolution.toString().padStart(4,' ');
+            }
+            let qualityStrAdd   = `${plResolution}p (${plBandwidth}KiB/s)`;
+            let qualityStrRegx  = new RegExp(qualityStrAdd.replace(/(\:|\(|\)|\/)/g,'\\$1'),'m');
+            let qualityStrMatch = !plQualityStr.join('\r\n').match(qualityStrRegx);
+            if(qualityStrMatch){
+                plQualityStr.push(qualityStrAdd);
             }
         }
-        argv.x = argv.x - 1;
-        argv.q = argv.q == 'max' || parseInt(argv.q.replace(/p/,'')) > pl_max ? `${pl_max}p` : argv.q;
-        let maxServers = plQualityAlt[argv.q].length + 1;
-        if( !plQuality[argv.q] && plQualityAlt[argv.q][0] ){
-            plQuality[argv.q].url = plQualityAlt[argv.q][0].url;
+        
+        for(let s of mainServersList){
+            if(plServerList.includes(s)){
+                plServerList.splice(plServerList.indexOf(s),1);
+                plServerList.unshift(s);
+                break;
+            }
         }
-        if(argv.x > 0){
-            plQuality[argv.q] = argv.x > maxServers-1 ? plQualityAlt[argv.q][0] : plQualityAlt[argv.q][argv.x-1];
-        }
-        if(plQuality[argv.q]){
-            // show qualities
-            console.log(`[INFO] Selected quality: ${argv.q}\n\tAvailable qualities:\n\t\t${plQualityStr.join('\n\t\t')}`);
-            // servers
-            console.log(`[INFO] Selected server: ` + ( argv.x < 1 ? `1` :
-                ( argv.x > maxServers-1 ? maxServers : argv.x+1 ) ) + ` / Total servers available: ` + maxServers );
-            // video url
-            let vidUrl = plQuality[argv.q].url;
-            console.log(`[INFO] Stream URL:`,vidUrl);
+        
+        argv.q = argv.q == 'max' ? `${plMaxQuality}p` : argv.q;
+        
+        let plSelectedServer = plServerList[argv.x-1];
+        let plSelectedList   = plStreams[plSelectedServer];
+        let videoUrl = argv.x < plServerList.length+1 && plSelectedList[argv.q] ? plSelectedList[argv.q] : '';
+        
+        plQualityStr.sort();
+        console.log(`[INFO] Servers available:\n\t${plServerList.join('\n\t')}`);
+        console.log(`[INFO] Available qualities:\n\t${plQualityStr.join('\n\t')}`);
+        
+        if(videoUrl != ''){
+            console.log(`[INFO] Selected quality: ${argv.q} @ ${plSelectedServer}`);
+            console.log(`[INFO] Stream URL:`,videoUrl);
             // filename
             fnSuffix = argv.suffix.replace('SIZEp',argv.q);
             fnOutput = shlp.cleanupFilename(`[${argv.a}] ${fnTitle} - ${fnEpNum} [${fnSuffix}]`);
@@ -555,38 +559,43 @@ async function getMedia(mMeta){
             }
             else{
                 // request
-                let chunkPage = await getData(vidUrl);
+                let chunkPage = await getData(videoUrl);
                 if(!chunkPage.ok){
                     console.log(`[ERROR] CAN'T FETCH VIDEO PLAYLIST!`);
-                    return;
+                    argv.skipmux = true;
                 }
-                let chunkList = m3u8(chunkPage.res.body);
-                chunkList.baseUrl = vidUrl.split('/').slice(0, -1).join('/')+'/';
-                // proxy
-                let proxyHLS;
-                if(argv.proxy && !argv.ssp){
-                    try{
-                        proxyHLS.url = buildProxyUrl(argv.proxy,argv['proxy-auth']);
+                else{
+                    let chunkList = m3u8(chunkPage.res.body);
+                    chunkList.baseUrl = videoUrl.split('/').slice(0, -1).join('/')+'/';
+                    // proxy
+                    let proxyHLS;
+                    if(argv.proxy && !argv.ssp){
+                        try{
+                            proxyHLS.url = buildProxyUrl(argv.proxy,argv['proxy-auth']);
+                        }
+                        catch(e){}
                     }
-                    catch(e){}
-                }
-                let dldata = await streamdl({
-                    fn: fnOutput,
-                    m3u8json: chunkList,
-                    baseurl: chunkList.baseUrl,
-                    pcount: 10,
-                    proxy: (proxyHLS?proxyHLS:false)
-                });
-                if(!dldata.ok){
-                    console.log(`[ERROR] ${dldata.err}\n`);
-                    return;
+                    let dldata = await streamdl({
+                        fn: fnOutput,
+                        m3u8json: chunkList,
+                        baseurl: chunkList.baseUrl,
+                        pcount: 10,
+                        proxy: (proxyHLS?proxyHLS:false)
+                    });
+                    if(!dldata.ok){
+                        console.log(`[ERROR] ${dldata.error}\n`);
+                        argv.skipmux = true;
+                    }
                 }
             }
         }
+        else if(argv.x > plServerList.length){
+            console.log(`[ERROR] Server not selected!\n`);
+            argv.skipmux = true;
+        }
         else{
-            console.log(`[INFO] Available qualities:`,plQualityStr.join('\n\t'));
-            console.log(`[ERROR] quality not selected\n`);
-            argv.skipdl = true;
+            console.log(`[ERROR] Quality not selected!\n`);
+            argv.skipmux = true;
         }
     }
     
@@ -605,12 +614,12 @@ async function getMedia(mMeta){
             console.log(`[INFO] Trying get subtitles in old format...`);
             if(hlsStream == ''){
                 let reqParams = {
-                    req: 'RpcApiVideoPlayer_GetStandardConfig',
-                    media_id: mMeta.m,
-                    video_format: qualities['480p'][0],
-                    video_quality: qualities['480p'][1],
-                    aff: 'crunchyroll-website',
-                    current_page: domain
+                    req:          'RpcApiVideoPlayer_GetStandardConfig',
+                    media_id:      mMeta.m,
+                    video_format:  106,
+                    video_quality: 61,
+                    aff:           'crunchyroll-website',
+                    current_page:  domain
                 };
                 let streamData = await getData(`${domain}/xml/`,{"qs":reqParams});
                 if(!streamData.ok){
@@ -698,14 +707,12 @@ async function getMedia(mMeta){
         }
     }
     
-    if(hlsStream != ''){
-        // go to muxing
-        if(argv.skipmux){
-            console.log();
-            return;
-        }
-        await muxStreams();
+    // go to muxing
+    if(argv.skipmux){
+        console.log();
+        return;
     }
+    await muxStreams();
     
 }
 
@@ -873,7 +880,7 @@ function setNewCookie(setCookie, isAuth){
         session.session_id = setCookie.c_userid;
         cookieUpdated.push('c_userkey');
     }
-    if(isAuth || argv.nosess || setCookie.session_id && !checkSessId(session.session_id)){
+    if(isAuth || argv.nosess && setCookie.session_id || setCookie.session_id && !checkSessId(session.session_id)){
         const sessionExp = 60*60;
         session.session_id            = setCookie.session_id;
         session.session_id.expires    = new Date(Date.now() + sessionExp*1000);

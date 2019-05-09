@@ -41,7 +41,7 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 * `-s <i> -e <s>` sets the show id and episode ids (comma-separated, hyphen-sequence)
 * `-q <s>` sets the video quality [240p...1080p,max] (optional)
 * `--dub <s>` Set audio language (sometimes not detect correctly)
-* `-x` select server (1 is vrv.co, 2...3 is dlvr1.net)
+* `-x` select server
 
 ### Proxy
 
