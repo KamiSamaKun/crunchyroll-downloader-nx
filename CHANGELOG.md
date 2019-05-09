@@ -1,5 +1,9 @@
 ## Change Log
 
+### 4.2.0 (2019/05/10)
+- Fix proxy checks
+- Replace current search engine with Crunchyroll device api
+
 ### 4.1.0 (2019/05/09)
 - Better server selection
 - Code improvements

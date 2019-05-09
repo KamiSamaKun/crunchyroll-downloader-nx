@@ -4,6 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const qs = require('querystring');
+const url = require('url');
 
 // package program
 const packageJson = require('./package.json');
@@ -167,10 +168,15 @@ catch (e) {
 process.chdir(cfg.dir.content);
 
 // api script urls
-const domain = 'https://www.crunchyroll.com';
+const domain    = 'https://www.crunchyroll.com';
+const apidomain = 'https://api.crunchyroll.com';
+
 const api = {
-    search:      `${domain}/ajax/?req=RpcApiSearch_GetSearchCandidates`,
+    search1:     `${domain}/ajax/?req=RpcApiSearch_GetSearchCandidates`,
     search2:     `${domain}/search_page`,
+    search3:     `${apidomain}/autocomplete.0.json`,
+    session:     `${apidomain}/start_session.0.json`,
+    collectins:  `${apidomain}/list_collections.0.json`,
     rss_cid:     `${domain}/syndication/feed?type=episodes&lang=enUS&id=`,
     rss_gid:     `${domain}/syndication/feed?type=episodes&lang=enUS&group_id=`,
     media_page:  `${domain}/media-`,
@@ -216,88 +222,100 @@ async function doAuth(){
 }
 
 async function doSearch(){
+    // session
+    let apiSession = '';
+    if(session.session_id && session.session_id.value && checkSessId(session.session_id) && !argv.nosess){
+        apiSession = session.session_id.value;
+    }
     // seacrh params
     const params = {
         q: argv.search,
-        sp: argv.p ? parseInt(argv.p) - 1 : 0,
-        st: 'm'
+        clases: 'series',
+        media_types: 'anime',
+        fields: 'series.series_id,series.name,series.year',
+        offset: argv.p ? (parseInt(argv.p)-1)*100 : 0,
+        limit: 100,
+        locale: 'enUS',
     };
-    // request
-    let reqAniList = await getData(`${api.search2}?${qs.stringify(params)}`);
-    if(!reqAniList.ok){ return; }
-    // parse fix
-    let aniListSec = reqAniList.res.body.replace(/^\/\*-secure-\n(.*)\n\*\/$/,'$1');
-    aniListSec = JSON.parse(aniListSec);
-    let totalResults = 0;
-    // data
-    const mainHtml = xhtml2js({ src: '<html>'+aniListSec.data.main_html+'</html>', el: 'body' }).$;
-    const results0 = mainHtml.find('p');
-    const results1 = results0.eq(0).text().trim();
-    const results2 = results0.eq(1).text().trim();
-    const resultsStr = results2 != '' ? results2 : 
-        results1 != '' ? results1 : 'NOTHING FOUND!';
-    console.log(`[INFO] ${resultsStr}`);
-    // seasons
-    const searchData = mainHtml.find('li');
-    for(let v=0;v<searchData.length;v++){
-        let href = searchData.eq(v).find('a')[0].attribs.href;
-        let name = searchData.eq(v).find('.name');
-        let libn = name[0].children[0].data.trim();
-        let type = name[0].children[1].children[0].data.trim().replace(/(\(|\))/g,'');
-        let isLib = href.match(/^\/library\//) ? true : false;
-        if(type == 'Series' && !isLib){
-            console.log(`[${type}] ${libn}`);
-            await getShowByUri(href, libn);
-            totalResults++;
-        }
-    }
-    console.log(`\n[INFO] Some non-video results is hidden\n       RL: Region LOCK`);
-    if(totalResults>0){
-        console.log(`[INFO] Total results: ${totalResults}\n`);
-    }
-}
-
-async function getShowByUri(uri, title){
-    uri = uri.replace(/^\//,'');
-    let vList = await getData(`${domain}/${uri}/videos`,{ "headers": { "X-Requested-With": "XMLHttpRequest"} });
-    if(!vList.ok){ return; }
-    let sTitle = '', items,
-        src = `<body>${vList.res.body}</body>`;
-    items = xhtml2js({ src, el: 'ul.list-of-seasons', parse: true }).data;
-    if(!items){
-        console.log(`  [ERROR] Removed from CR catalog!`);
-        return; 
+    if(apiSession != ''){
+        params.session_id = apiSession;
     }
     else{
-        items = items.children
-    }
-    for(let i of items){
-        let c = i.children;
-        let t = c[0].tagName;
-        let e = t == 'a' ? 1 : 0;
-        let s = -1;
-        if(e > 0){
-            sTitle = c[0].attribs.title;
+        const sessionParams = {
+            device_type:  'com.crunchyroll.windows.desktop',
+            device_id  :  '00000000-0000-0000-0000-000000000000',
+            access_token: 'LNDJgOit5yaRIWN',
+        };
+        let reqSession = await getData(`${api.session}?${qs.stringify(sessionParams)}`,{useProxy:true});
+        if(!reqSession.ok){
+            console.log(`[ERROR] Can't update session id!`);
+            return;
+        }
+        reqSession = JSON.parse(reqSession.res.body);
+        if(reqSession.error){
+            console.log(`[ERROR] ${aniList.message}`);
         }
         else{
-            sTitle = title ? title : uri;
+            argv.nosess = false;
+            console.log(`[INFO] Your country: ${reqSession.data.country_code}\n`);
+            apiSession = session.session_id.value;
+            params.session_id = apiSession;
         }
-        if(c[e].children.length>1){
-            let xEp = c[e].children[0].attribs.id.match(/(\d+)/)[1];
-            s = await fetchShowIdFromVideoPage(xEp);
-        }
-        console.log(`  [S:${s>-1?s:'RL'}] ${sTitle}`);
     }
-    
+    // request
+    let aniList = await getData(`${api.search3}?${qs.stringify(params)}`);
+    if(!aniList.ok){
+        console.log(`[ERROR] Can't get search data!`);
+        return;
+    }
+    aniList = JSON.parse(aniList.res.body);
+    if(aniList.error){
+        console.log(`[ERROR] ${aniList.message}`);
+    }
+    else{
+        if(aniList.data.length > 0){
+            console.log(`[INFO] Search Results:`);
+            for(let a of aniList.data){
+                await printSeasons(a,apiSession);
+            }
+            console.log(`\n[INFO] Total results: ${aniList.data.length}\n`);
+        }
+        else{
+            console.log(`[INFO] Nothing Found!`);
+        }
+    }
 }
 
-async function fetchShowIdFromVideoPage(xEp){
-    uEx = `${domain}/media-${xEp}`;
-    let vPage = await getData(uEx);
-    if(!vPage.ok){ return 0; }
-    let coll_id = vPage.res.body.match(/collection_id: "(\d+)"/);
-    coll_id = coll_id ? coll_id[1] : 0;
-    return coll_id;
+async function printSeasons(a,apiSession){
+    console.log(`[SERIES] #${a.series_id} ${a.name}`,(a.year?`(${a.year})`:``));
+    let collParams = {
+        session_id: apiSession,
+        series_id:  a.series_id,
+        fields:     'collection.collection_id,collection.name',
+        limit:      5000,
+        offset:     0,
+        locale:     'enUS',
+    };
+    let seasonList = await getData(`${api.collectins}?${qs.stringify(collParams)}`);
+    if(seasonList.ok){
+        seasonList = JSON.parse(seasonList.res.body);
+        if(seasonList.error){
+            console.log(`  [ERROR] Can't fetch seasons list: ${seasonList.message}`);
+        }
+        else{
+            if(seasonList.data.length>0){
+                for(let s of seasonList.data){
+                    console.log(`  [S:${s.collection_id}] ${s.name}`);
+                }
+            }
+            else{
+                console.log(`  [ERROR] Seasons list is empty`);
+            }
+        }
+    }
+    else{
+        console.log(`  [ERROR] Can't fetch seasons list (request failed)`);
+    }
 }
 
 async function getShowById(){
@@ -900,7 +918,7 @@ function checkSessId(session_id){
 }
 function buildProxyUrl(proxyBaseUrl,proxyAuth){
     let proxyCfg = new URL(proxyBaseUrl);
-    if(!proxyCfg.hostname || !proxyCfg.port){
+    if(typeof proxyCfg.hostname != 'string' || typeof proxyCfg.port != 'string'){
         throw new Error();
     }
     if(proxyAuth && proxyAuth.match(':')){
