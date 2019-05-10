@@ -224,7 +224,7 @@ async function doAuth(){
 async function doSearch(){
     // session
     let apiSession = '';
-    if(session.session_id && session.session_id.value && checkSessId(session.session_id) && !argv.nosess){
+    if(session.session_id && checkSessId(session.session_id) && !argv.nosess){
         apiSession = session.session_id.value;
     }
     // seacrh params
@@ -853,7 +853,7 @@ async function getData(durl, params){
     }
     // if auth
     let cookie = [];
-    if(typeof session.c_userid != "undefined" && typeof session.c_userkey != "undefined"){
+    if(checkCookieVal(session.c_userid) && checkCookieVal(session.c_userkey)){
         cookie.push('c_userid', 'c_userkey');
     }
     if(checkSessId(session.session_id) && !argv.nosess){
@@ -910,10 +910,16 @@ function setNewCookie(setCookie, isAuth){
         console.log(`[INFO] Cookies was updated! (${cookieUpdated.join(',')})\n`);
     }
 }
+function checkCookieVal(chcookie){
+    return     chcookie.toString()   == "[object Object]"
+            && typeof chcookie.value == "string"
+            ?  true : false;
+}
 function checkSessId(session_id){
-    return     typeof session_id         != "undefined"
-            && typeof session_id.expires != "undefined"
+    return     session_id.toString()     == "[object Object]"
+            && typeof session_id.expires == "string"
             && Date.now() < new Date(session_id.expires).getTime()
+            && typeof session_id.value   == "string"
             ?  true : false;
 }
 function buildProxyUrl(proxyBaseUrl,proxyAuth){
