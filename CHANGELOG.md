@@ -1,5 +1,9 @@
 ## Change Log
 
+### 4.3.0 (2019/05/10)
+- Added experimental `search2`
+- Fixed oldsubs engine
+
 ### 4.2.1 (2019/05/10)
 - Better cookie checks
 

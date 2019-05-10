@@ -91,6 +91,7 @@ let argv = yargs
     
     // search
     .describe('search','Search show ids')
+    .describe('search2','Search show ids (multi-language, experimental)')
     
     // auth
     .describe('auth','Enter auth mode')
@@ -194,6 +195,9 @@ if(argv.auth){
 }
 else if(argv.search && argv.search.length > 2){
     doSearch();
+}
+else if(argv.search2 && argv.search2.length > 2){
+    doSearch2();
 }
 else if(argv.s && !isNaN(parseInt(argv.s,10)) && parseInt(argv.s,10) > 0){
     getShowById();
@@ -315,6 +319,54 @@ async function printSeasons(a,apiSession){
     }
     else{
         console.log(`  [ERROR] Can't fetch seasons list (request failed)`);
+    }
+}
+
+async function doSearch2(){
+    // seacrh params
+    const params = {
+        q: argv.search2,
+        sp: argv.p ? parseInt(argv.p) - 1 : 0,
+        limit: 100,
+        st: 'm'
+    };
+    // request
+    let reqAniSearch  = await getData(`${api.search2}?${qs.stringify(params)}`,{useProxy:true});
+    let reqRefAniList = await getData(`${api.search1}`);
+    if(!reqAniSearch.ok || !reqRefAniList.ok){ return; }
+    // parse fix
+    let aniSearchSec  = reqAniSearch.res.body.replace(/^\/\*-secure-\n(.*)\n\*\/$/,'$1');
+    let aniRefListSec = reqRefAniList.res.body.replace(/^\/\*-secure-\n(.*)\n\*\/$/,'$1');
+    aniSearchSec = JSON.parse(aniSearchSec);
+    aniRefListSec = JSON.parse(aniRefListSec);
+    let totalResults = 0;
+    // data
+    const mainHtml = xhtml2js({ src: '<html>'+aniSearchSec.data.main_html+'</html>', el: 'body' }).$;
+    const results0 = mainHtml.find('p');
+    const results1 = results0.eq(0).text().trim();
+    const results2 = results0.eq(1).text().trim();
+    const resultsStr = results2 != '' ? results2 : 
+        results1 != '' ? results1 : 'NOTHING FOUND!';
+    console.log(`[INFO] ${resultsStr}`);
+    // seasons
+    const searchData = mainHtml.find('li');
+    for(let v=0; v<searchData.length; v++){
+        let href  = searchData.eq(v).find('a')[0].attribs.href;
+        let data  = aniRefListSec.data.filter(value => value.link == href).shift()
+        let notLib = href.match(/^\/library\//) ? false : true;
+        if(notLib && data.type == 'Series'){
+            if(session.session_id && checkSessId(session.session_id) && !argv.nosess){
+                await printSeasons({series_id: data.id, name: data.name},session.session_id.value);
+            }
+            else{
+                console.log(`  [ERROR] Can't fetch seasons list, session_id cookie required`);
+            }
+            totalResults++;
+        }
+    }
+    if(totalResults>0){
+        console.log(`[INFO] Non-anime results is hidden`); 
+        console.log(`[INFO] Total results: ${totalResults}\n`);
     }
 }
 
@@ -639,7 +691,7 @@ async function getMedia(mMeta){
                     aff:           'crunchyroll-website',
                     current_page:  domain
                 };
-                let streamData = await getData(`${domain}/xml/`,{"qs":reqParams});
+                let streamData = await getData(`${domain}/xml/?{qs.stringify(reqParams)}`);
                 if(!streamData.ok){
                     mediaIdSubs = '0';
                 }
@@ -907,7 +959,7 @@ function setNewCookie(setCookie, isAuth){
     }
     if(cookieUpdated.length > 0){
         fs.writeFileSync(sessionFile,yaml.stringify(session));
-        console.log(`[INFO] Cookies was updated! (${cookieUpdated.join(',')})\n`);
+        console.log(`[INFO] Cookies were updated! (${cookieUpdated.join(',')})\n`);
     }
 }
 function checkCookieVal(chcookie){
