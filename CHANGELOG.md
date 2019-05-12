@@ -1,5 +1,10 @@
 ## Change Log
 
+### 4.3.1 (2019/05/12)
+- Fix cookie checks
+- Added github url to `package.json`
+- Update dependencies
+
 ### 4.3.0 (2019/05/10)
 - Added experimental `search2`
 - Fixed oldsubs engine

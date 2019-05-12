@@ -79,7 +79,7 @@ const langCodes = {
     '':        ['unk','Unknown']
 };
 // dubRegex
-const dubRegex = 
+const dubRegex =
     new RegExp(`\\((${Object.keys(dubLangs).join('|')}) Dub\\)$`);
 
 // args
@@ -345,7 +345,7 @@ async function doSearch2(){
     const results0 = mainHtml.find('p');
     const results1 = results0.eq(0).text().trim();
     const results2 = results0.eq(1).text().trim();
-    const resultsStr = results2 != '' ? results2 : 
+    const resultsStr = results2 != '' ? results2 :
         results1 != '' ? results1 : 'NOTHING FOUND!';
     console.log(`[INFO] ${resultsStr}`);
     // seasons
@@ -365,7 +365,7 @@ async function doSearch2(){
         }
     }
     if(totalResults>0){
-        console.log(`[INFO] Non-anime results is hidden`); 
+        console.log(`[INFO] Non-anime results is hidden`);
         console.log(`[INFO] Total results: ${totalResults}\n`);
     }
 }
@@ -397,7 +397,7 @@ async function getShowById(){
         let eSplitNum, eFirstNum, eLastNum;
         if(e.match('-')){
             let eRegx = e.split('-');
-            if( eRegx.length == 2 
+            if( eRegx.length == 2
                     && eRegx[0].match(epsRegex)
                     && eRegx[1].match(/^\d{1,3}$/)
             ){
@@ -448,18 +448,18 @@ async function getShowById(){
         let mediaId = epsList.eq(i2).find('crunchyroll\\:mediaId').text();
         let selMark = '';
         if(selEpsInp.includes(epStr) && dateNow > airDate){
-            selEpsArr.push({ 
-                m: mediaId, 
-                t: vMainTitle, 
+            selEpsArr.push({
+                m: mediaId,
+                t: vMainTitle,
                 te: epTitle,
                 e: epStr,
             });
             selMark = ' (selected)';
         }
         console.log(`  [${epStr}|${mediaId}] ${epTitle}${selMark}`);
-        let dateStrPrem = shlp.dateString(airDate) 
+        let dateStrPrem = shlp.dateString(airDate)
             + ( dateNow < airDate ? ` (in ${shlp.formatTime((airDate-dateNow)/1000)})` : '');
-        let dateStrFree = shlp.dateString(airFree) 
+        let dateStrFree = shlp.dateString(airFree)
             + ( dateNow < airFree ? ` (in ${shlp.formatTime((airFree-dateNow)/1000)})` : '');
         console.log(`   - PremPubDate: ${dateStrPrem}`);
         console.log(`   - FreePubDate: ${dateStrFree}`);
@@ -704,11 +704,11 @@ async function getMedia(mMeta){
                 let subsListApi = await getData(`${api.subs_list}${mediaIdSubs}`);
                 if(subsListApi.ok){
                     // parse list
-                    let subsListXml = xhtml2js({ 
-                        src: subsListApi.res.body, 
-                        el: 'subtitles', 
-                        isXml: true, 
-                        parse:true 
+                    let subsListXml = xhtml2js({
+                        src: subsListApi.res.body,
+                        el: 'subtitles',
+                        isXml: true,
+                        parse: true,
                     }).data.children;
                     // subsDecrypt
                     for(let s=0;s<subsListXml.length;s++){
@@ -793,7 +793,7 @@ async function muxStreams(){
     const addSubs = argv.mks && sxList.length > 0 && !argv.mp4 ? true : false;
     // ftag
     argv.ftag = argv.ftag ? argv.ftag : argv.a;
-    argv.ftag = shlp.cleanupFilename(argv.ftag); 
+    argv.ftag = shlp.cleanupFilename(argv.ftag);
     // check exec
     if( !argv.mp4 && !isFile(cfg.bin.mkvmerge) && !isFile(cfg.bin.mkvmerge+`.exe`) ){
         console.log(`[WARN] MKVMerge not found, skip using this...`);
@@ -963,12 +963,14 @@ function setNewCookie(setCookie, isAuth){
     }
 }
 function checkCookieVal(chcookie){
-    return     chcookie.toString()   == "[object Object]"
+    return     chcookie
+            && chcookie.toString()   == "[object Object]"
             && typeof chcookie.value == "string"
             ?  true : false;
 }
 function checkSessId(session_id){
-    return     session_id.toString()     == "[object Object]"
+    return     session_id
+            && session_id.toString()     == "[object Object]"
             && typeof session_id.expires == "string"
             && Date.now() < new Date(session_id.expires).getTime()
             && typeof session_id.value   == "string"
