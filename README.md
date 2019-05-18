@@ -35,6 +35,7 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 ### Get Show ID
 
 * `--search <s>` sets the show title for search
+* `--search2 <s>` sets the show title for search (multi-language, experimental)
 
 ### Download Video
 
@@ -42,6 +43,7 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 * `-q <s>` sets the video quality [240p...1080p,max] (optional)
 * `--dub <s>` Set audio language (sometimes not detect correctly)
 * `-x` select server
+* `--oldsubs` use old api for fetching subtitles
 
 ### Proxy
 
@@ -53,7 +55,7 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 
 `[note] this application mux into mkv by default`
 * `--mp4` mux into mp4
-* `--mks` add subtitles to mkv or mp4 (if available)
+* `--mks` add subtitles to mkv (if available)
 
 ### Filenaming (optional)
 

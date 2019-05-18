@@ -1,6 +1,6 @@
 {
     "name": "crunchyroll-downloader-nx",
-    "version": "4.3.1",
+    "version": "4.3.2",
     "description": "Download from Crunchyroll via cli.",
     "keywords": [
         "util",
@@ -27,7 +27,7 @@
         "proxy-agent": "^3.1.0",
         "sei-helper": "^3.1.0",
         "yaml": "^1.5.1",
-        "yargs": "^13.2.2"
+        "yargs": "^13.2.4"
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"

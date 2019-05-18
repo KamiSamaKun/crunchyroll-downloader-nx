@@ -1,5 +1,10 @@
 ## Change Log
 
+### 4.3.2 (2019/05/18)
+- Fix cookie updating
+- Fix `--oldsubs` fetching
+- Update dependencies
+
 ### 4.3.1 (2019/05/12)
 - Fix cookie checks
 - Added github url to `package.json`

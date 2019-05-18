@@ -508,7 +508,7 @@ async function getMedia(mMeta){
     
     let mediaData = mediaPage.res.body.match(/vilos.config.media = \{(.*)\};/);
     if(!mediaData){
-        console.log(`[ERROR] CAN'T FETCH VIDEO INFO / PREMIUM LOCKED FOR YOUR REGION`);
+        console.log(`[ERROR] CAN'T FETCH VIDEO INFO / PREMIUM LOCKED FOR YOUR REGION!`);
         return;
     }
     else{
@@ -544,7 +544,7 @@ async function getMedia(mMeta){
     
     // download stream
     if(hlsStream == ''){
-        console.log(`[ERROR] No available full streams!`);
+        console.log(`[ERROR] No available full streams / Session expired!`);
         argv.skipmux = true;
     }
     else{
@@ -691,8 +691,9 @@ async function getMedia(mMeta){
                     aff:           'crunchyroll-website',
                     current_page:  domain
                 };
-                let streamData = await getData(`${domain}/xml/?{qs.stringify(reqParams)}`);
+                let streamData = await getData(`${domain}/xml/?${qs.stringify(reqParams)}`);
                 if(!streamData.ok){
+                    console.log(streamData);
                     mediaIdSubs = '0';
                 }
                 else{
@@ -947,7 +948,7 @@ function setNewCookie(setCookie, isAuth){
         cookieUpdated.push('c_userid');
     }
     if(isAuth || setCookie.c_userkey){
-        session.session_id = setCookie.c_userid;
+        session.c_userkey = setCookie.c_userkey;
         cookieUpdated.push('c_userkey');
     }
     if(isAuth || argv.nosess && setCookie.session_id || setCookie.session_id && !checkSessId(session.session_id)){
@@ -958,8 +959,10 @@ function setNewCookie(setCookie, isAuth){
         cookieUpdated.push('session_id');
     }
     if(cookieUpdated.length > 0){
-        fs.writeFileSync(sessionFile,yaml.stringify(session));
-        console.log(`[INFO] Cookies were updated! (${cookieUpdated.join(',')})\n`);
+        session = yaml.stringify(session);
+        fs.writeFileSync(sessionFile,session);
+        session = yaml.parse(session);
+        console.log(`[INFO] Cookies were updated! (${cookieUpdated.join(', ')})\n`);
     }
 }
 function checkCookieVal(chcookie){
