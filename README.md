@@ -8,8 +8,8 @@ This application is not endorsed by or affiliated with *Crunchyroll*. This appli
 
 ## Prerequisites
 
-* NodeJS >= 9.4.0 (https://nodejs.org/)
-* NPM >= 5.3.0 (https://www.npmjs.org/)
+* NodeJS >= 12.2.0 (https://nodejs.org/)
+* NPM >= 6.9.0 (https://www.npmjs.org/)
 * ffmpeg >= 4.0.0 (https://www.videohelp.com/software/ffmpeg)
 * MKVToolNix >= 20.0.0 (https://www.videohelp.com/software/MKVToolNix)
 
