@@ -532,19 +532,25 @@ async function getMedia(mMeta){
     let isClip  = false;
     
     for(let s=0;s<streams.length;s++){
-        let checkParams = streams[s].format == 'hls'
-            && streams[s].hardsub_lang === null;
+        let isHls = streams[s].format == 'hls'
+            || streams[s].format == 'multitrack_adaptive_hls_v2' ? true : false;
+        let checkParams = isHls && streams[s].hardsub_lang === null;
         if(streams[s].url.match(/clipFrom/)){
             isClip = true;
         }
         if(checkParams && !isClip){
             hlsStream = streams[s].url;
+            console.log(`[INFO] Full raw stream found!`);
         }
     }
     
     // download stream
-    if(hlsStream == ''){
-        console.log(`[ERROR] No available full streams / Session expired!`);
+    if(hlsStream == '' && !isClip){
+        console.log(`[ERROR] No available full raw stream! Session expired?`);
+        argv.skipmux = true;
+    }
+    else if(hlsStream == '' && isClip){
+        console.log(`[ERROR] No available full raw stream! Only clip streams available.`);
         argv.skipmux = true;
     }
     else{

@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.3.3 (2019/05/21)
+- Improved raw stream detection
+
 ### 4.3.2 (2019/05/18)
 - Fix cookie updating
 - Fix `--oldsubs` fetching
