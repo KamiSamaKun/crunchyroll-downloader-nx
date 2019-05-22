@@ -77,5 +77,5 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 ## CLI Examples
 
 * `node crunchy --search "Naruto"` search "Naruto" in title
-* `node crunchy -s 124389 -e 1,2,3` download episodes 1-3 from show with id 12345
-* `node crunchy -s 124389 -e 1-3,2-7,s1-2` download episodes 1-7 and "S"-episodes 1-2 from show with id 12345
+* `node crunchy -s 124389 -e 1,2,3` download episodes 1-3 from show with id 124389
+* `node crunchy -s 124389 -e 1-3,2-7,s1-2` download episodes 1-7 and "S"-episodes 1-2 from show with id 124389
