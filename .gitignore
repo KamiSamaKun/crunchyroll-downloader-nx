@@ -18,3 +18,5 @@ package-lock.json
 *.srt
 *.ass
 *.bat
+*.7z
+*.zip
