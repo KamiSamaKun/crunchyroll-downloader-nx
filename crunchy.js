@@ -701,15 +701,15 @@ async function getMedia(mMeta){
             let mediaIdSubs = mMeta.m;
             console.log(`[INFO] Trying get subtitles in old format...`);
             if(hlsStream == ''){
-                let reqParams = {
+                let reqParams = new URLSearchParams({
                     req:          'RpcApiVideoPlayer_GetStandardConfig',
                     media_id:      mMeta.m,
                     video_format:  106,
                     video_quality: 61,
                     aff:           'crunchyroll-website',
                     current_page:  domain
-                };
-                let streamData = await getData(`${domain}/xml/?${qs.stringify(reqParams)}`);
+                });
+                let streamData = await getData(`${domain}/xml/?${reqParams.toString()}`);
                 if(!streamData.ok){
                     console.log(streamData);
                     mediaIdSubs = '0';

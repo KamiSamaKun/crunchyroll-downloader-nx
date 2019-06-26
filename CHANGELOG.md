@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.5.1 (2019/06/27)
+- Small fix
+
 ### 4.5.0 (2019/06/27)
 - Added new options `dlsubs`, `skipdl`/`novids` and `skipmux`
 - Updated configuration file
