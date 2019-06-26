@@ -1,5 +1,10 @@
 ## Change Log
 
+### 4.5.0 (2019/06/27)
+- Added new options `dlsubs`, `skipdl`/`novids` and `skipmux`
+- Updated configuration file
+- Update dependencies
+
 ### 4.3.3 (2019/05/21)
 - Improved raw stream detection
 

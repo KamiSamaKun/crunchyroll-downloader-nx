@@ -1,6 +1,6 @@
 {
     "name": "crunchyroll-downloader-nx",
-    "version": "4.3.3",
+    "version": "4.5.0",
     "description": "Download from Crunchyroll via cli.",
     "keywords": [
         "util",
@@ -25,8 +25,8 @@
         "hls-download": "^2.0.1",
         "m3u8-parsed": "^1.2.0",
         "proxy-agent": "^3.1.0",
-        "sei-helper": "^3.1.0",
-        "yaml": "^1.5.1",
+        "sei-helper": "^3.2.0",
+        "yaml": "^1.6.0",
         "yargs": "^13.2.4"
     },
     "scripts": {

@@ -37,25 +37,29 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 * `--search <s>` sets the show title for search
 * `--search2 <s>` sets the show title for search (multi-language, experimental)
 
-### Download Video
+### Download Video/Subtitles
 
 * `-s <i> -e <s>` sets the show id and episode ids (comma-separated, hyphen-sequence)
-* `-q <s>` sets the video quality [240p...1080p,max] (optional)
-* `--dub <s>` Set audio language (sometimes not detect correctly)
+* `-q <s>` sets the video quality [240p ... 1080p, max] (optional)
+* `--dub <s>` sets audio language by language code (sometimes not detect correctly)
 * `-x` select server
+* `--dlsubs` download subtitles by language tag
+* * supported language tags: "enUS", "esLA", "esES", "frFR", "ptBR", "ptPT", "arME", "itIT", "deDE", "ruRU", "trTR"
 * `--oldsubs` use old api for fetching subtitles
+* `--skipdl`/`--novids` skip downloading video (for downloading subtitles only)
+* `--skipmux` skip muxing video and subtitles
 
 ### Proxy
 
 * `--proxy <s>` http(s)/socks proxy WHATWG url (ex. https://myproxyhost:1080)
-* `--proxy-auth <s>` Colon-separated username and password for proxy
+* `--proxy-auth <s>` colon-separated username and password for proxy
 * `--ssp` don't use proxy for stream downloading
 
 ### Muxing
 
 `[note] this application mux into mkv by default`
 * `--mp4` mux into mp4
-* `--mks` add subtitles to mkv (if available)
+* `--mks` add subtitles to mkv/mp4 (if available)
 
 ### Filenaming (optional)
 

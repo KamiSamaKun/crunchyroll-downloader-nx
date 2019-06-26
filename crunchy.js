@@ -3,7 +3,6 @@
 // build-in
 const path = require('path');
 const fs = require('fs');
-const qs = require('querystring');
 const url = require('url');
 
 // package program
@@ -58,13 +57,19 @@ const dubLangs = {
     'Italian':    'ita',
     'German':     'ger',
     'Russian':    'rus',
+    'Turkish':    'tur',
     'Japanese':   'jpn',
     '':           'unk',
 };
+// dub langs
 const isoLangs = [];
 for(let lk of Object.keys(dubLangs)){
     isoLangs.push(dubLangs[lk]);
 }
+// dubRegex
+const dubRegex =
+    new RegExp(`\\((${Object.keys(dubLangs).join('|')}) Dub\\)$`);
+// subs codes
 const langCodes = {
     'en - us': ['eng','English (US)'],
     'es - la': ['spa','Spanish (Latin American)'],
@@ -76,11 +81,18 @@ const langCodes = {
     'it - it': ['ita','Italian'],
     'de - de': ['ger','German'],
     'ru - ru': ['rus','Russian'],
+    'tr - tr': ['tur','Turkish'],
     '':        ['unk','Unknown']
 };
-// dubRegex
-const dubRegex =
-    new RegExp(`\\((${Object.keys(dubLangs).join('|')}) Dub\\)$`);
+// subs filter codes
+const subsFilterLangs = ['all','none'];
+for(let lc of Object.keys(langCodes)){
+    lc = lc.match(/(\w{2}) - (\w{2})/);
+    if(lc){
+        lc = `${lc[1]}${lc[2].toUpperCase()}`;
+        subsFilterLangs.push(lc);
+    }
+}
 
 // args
 let argv = yargs
@@ -88,45 +100,47 @@ let argv = yargs
     .wrap(Math.min(100))
     .usage('Usage: $0 [options]')
     .help(false).version(false)
-    
     // search
     .describe('search','Search show ids')
     .describe('search2','Search show ids (multi-language, experimental)')
-    
     // auth
     .describe('auth','Enter auth mode')
-    
+    // req params
     .describe('s','Sets the show id')
     .describe('e','Select episode ids (comma-separated, hyphen-sequence)')
-    
     // quality
     .describe('q','Video Quality')
     .choices('q',['240p','360p','480p','720p','1080p','max'])
-    .default('q',cfg.cli.videoQuality)
-    
+    .default('q',(cfg.cli.videoQuality?cfg.cli.videoQuality:'720p'))
     // set dub
-    .describe('dub','Set audio language (sometimes not detect correctly)')
+    .describe('dub','Set audio language by language code (sometimes not detect correctly)')
     .choices('dub', [...new Set(isoLangs)])
-    .default('dub', cfg.cli.dubLanguage)
-    
+    .default('dub', (cfg.cli.dubLanguage?cfg.cli.dubLanguage:'jpn'))
     // server
     .describe('x','Select server')
     .choices('x', [1, 2, 3, 4])
-    .default('x', cfg.cli.nServer)
-    
+    .default('x', (cfg.cli.nServer?cfg.cli.nServer:1))
     // oldsubs api
     .describe('oldsubs','Use old api for fetching subtitles')
     .boolean('oldsubs')
     .default('oldsubs', cfg.cli.oldSubs)
-    
+    // muxing subs
+    .describe('dlsubs','Download subtitles by language tag')
+    .choices('dlsubs', subsFilterLangs)
+    .default('dlsubs', (cfg.cli.dlSubs?cfg.cli.dlSubs:'all'))
+    // skip
+    .describe('skipdl','Skip downloading video (for downloading subtitles only)')
+    .boolean('skipdl')
+    .alias('skipdl','novids')
+    .describe('skipmux','Skip muxing video and subtitles')
+    .boolean('skipmux')
     // muxing
     .describe('mp4','Mux into mp4')
     .boolean('mp4')
     .default('mp4',cfg.cli.mp4mux)
-    .describe('mks','Add subtitles to mkv (if available)')
+    .describe('mks','Add subtitles to mkv/mp4 (if available)')
     .boolean('mks')
     .default('mks',cfg.cli.muxSubs)
-    
     // set title
     .describe('a','Filenaming: Release group')
     .default('a',cfg.cli.releaseGroup)
@@ -134,12 +148,10 @@ let argv = yargs
     .describe('ep','Filenaming: Episode number override (ignored in batch mode)')
     .describe('suffix','Filenaming: Filename suffix override (first "SIZEp" will be replaced with actual video size)')
     .default('suffix',cfg.cli.fileSuffix)
-    
     // util
     .describe('nocleanup','Move temporary files to trash folder instead of deleting')
     .boolean('nocleanup')
     .default('nocleanup',cfg.cli.noCleanUp)
-    
     // help
     .describe('help','Show this help')
     .boolean('help')
@@ -212,11 +224,11 @@ async function doAuth(){
     console.log(`[INFO] Authentication`);
     const iLogin = await shlp.question(`[Q] LOGIN/EMAIL`);
     const iPsswd = await shlp.question(`[Q] PASSWORD   `);
-    const authData = qs.stringify({
+    const authData = new URLSearchParams({
         name: iLogin,
         password: iPsswd
     });
-    let auth = await getData(api.auth,{ method: 'POST', body: authData, useProxy: true, skipCookies: true });
+    let auth = await getData(api.auth,{ method: 'POST', body: authData.toString(), useProxy: true, skipCookies: true });
     if(!auth.ok){
         console.log(`[ERROR] Authentication failed!`);
         return;
@@ -232,7 +244,7 @@ async function doSearch(){
         apiSession = session.session_id.value;
     }
     // seacrh params
-    const params = {
+    const params = new URLSearchParams({
         q: argv.search,
         clases: 'series',
         media_types: 'anime',
@@ -240,17 +252,17 @@ async function doSearch(){
         offset: argv.p ? (parseInt(argv.p)-1)*100 : 0,
         limit: 100,
         locale: 'enUS',
-    };
+    });
     if(apiSession != ''){
-        params.session_id = apiSession;
+        params.append('session_id', apiSession);
     }
     else{
-        const sessionParams = {
+        const sessionParams = new URLSearchParams({
             device_type:  'com.crunchyroll.windows.desktop',
             device_id  :  '00000000-0000-0000-0000-000000000000',
             access_token: 'LNDJgOit5yaRIWN',
-        };
-        let reqSession = await getData(`${api.session}?${qs.stringify(sessionParams)}`,{useProxy:true});
+        });
+        let reqSession = await getData(`${api.session}?${sessionParams.toString()}`,{useProxy:true});
         if(!reqSession.ok){
             console.log(`[ERROR] Can't update session id!`);
             return;
@@ -263,11 +275,11 @@ async function doSearch(){
             argv.nosess = false;
             console.log(`[INFO] Your country: ${reqSession.data.country_code}\n`);
             apiSession = session.session_id.value;
-            params.session_id = apiSession;
+            params.append('session_id', apiSession);
         }
     }
     // request
-    let aniList = await getData(`${api.search3}?${qs.stringify(params)}`);
+    let aniList = await getData(`${api.search3}?${params.toString()}`);
     if(!aniList.ok){
         console.log(`[ERROR] Can't get search data!`);
         return;
@@ -292,15 +304,15 @@ async function doSearch(){
 
 async function printSeasons(a,apiSession){
     console.log(`[SERIES] #${a.series_id} ${a.name}`,(a.year?`(${a.year})`:``));
-    let collParams = {
+    let collParams = new URLSearchParams({
         session_id: apiSession,
         series_id:  a.series_id,
         fields:     'collection.collection_id,collection.name',
         limit:      5000,
         offset:     0,
         locale:     'enUS',
-    };
-    let seasonList = await getData(`${api.collectins}?${qs.stringify(collParams)}`);
+    });
+    let seasonList = await getData(`${api.collectins}?${collParams.toString()}`);
     if(seasonList.ok){
         seasonList = JSON.parse(seasonList.res.body);
         if(seasonList.error){
@@ -324,14 +336,14 @@ async function printSeasons(a,apiSession){
 
 async function doSearch2(){
     // seacrh params
-    const params = {
+    const params = new URLSearchParams({
         q: argv.search2,
         sp: argv.p ? parseInt(argv.p) - 1 : 0,
         limit: 100,
         st: 'm'
-    };
+    });
     // request
-    let reqAniSearch  = await getData(`${api.search2}?${qs.stringify(params)}`,{useProxy:true});
+    let reqAniSearch  = await getData(`${api.search2}?${params.toString()}`,{useProxy:true});
     let reqRefAniList = await getData(`${api.search1}`);
     if(!reqAniSearch.ok || !reqRefAniList.ok){ return; }
     // parse fix
@@ -631,7 +643,7 @@ async function getMedia(mMeta){
             fnOutput = shlp.cleanupFilename(`[${argv.a}] ${fnTitle} - ${fnEpNum} [${fnSuffix}]`);
             console.log(`[INFO] Output filename: ${fnOutput}`);
             if(argv.skipdl){
-                console.log(`[INFO] Video download skiped!\n`);
+                console.log(`[INFO] Video download skipped!\n`);
             }
             else{
                 // request
@@ -680,7 +692,7 @@ async function getMedia(mMeta){
     
     // download subs
     sxList = [];
-    if(!argv.skipsubs){
+    if(!argv.skipsubs || argv.dlsubs != 'none'){
         console.log(`[INFO] Downloading subtitles...`);
         if(!getOldSubs && mediaData.subtitles.length < 1){
             console.log(`[WARN] Can't find urls for subtitles! If you downloading sub version, try use oldsubs cli option`);
@@ -721,65 +733,76 @@ async function getMedia(mMeta){
                     for(let s=0;s<subsListXml.length;s++){
                         if(subsListXml[s].tagName=='subtitle'){
                             let subsId = subsListXml[s].attribs.id;
+                            let subsTt = subsListXml[s].attribs.title;
                             let subsXmlApi = await getData(`${api.subs_file}${subsId}`);
                             if(subsXmlApi.ok){
                                 let subXml      = crunchySubs.decrypt(subsListXml[s].attribs.id,subsXmlApi.res.body);
                                 if(subXml.ok){
                                     let subsParsed  = crunchySubs.parse(subsListXml[s].attribs,subXml.data);
+                                    let sLang = subsParsed.langCode.match(/(\w{2}) - (\w{2})/);
+                                    sLang = `${sLang[1]}${sLang[2].toUpperCase()}`;
+                                    subsParsed.langStr  = langCodes[subsParsed.langCode][1];
+                                    subsParsed.langCode = langCodes[subsParsed.langCode][0];
                                     let subsExtFile = [
                                         subsParsed.id,
-                                        langCodes[subsParsed.langCode][0],
-                                        langCodes[subsParsed.langCode][1]
+                                        subsParsed.langCode,
+                                        subsParsed.langStr
                                     ].join(' ');
-                                    let subsFile = `${fnOutput}.${subsExtFile}.ass`;
-                                    fs.writeFileSync(subsFile,subsParsed.src);
-                                    console.log(`[INFO] Downloaded: ${subsFile}`);
-                                    sxList.push({
-                                        id: subsParsed.id,
-                                        langCode: langCodes[subsParsed.langCode][0],
-                                        langStr: langCodes[subsParsed.langCode][1],
-                                        title: subsParsed.title,
-                                        file: subsFile,
-                                        // isDefault: subsParsed.isDefault,
-                                    });
+                                    subsParsed.file = `${fnOutput}.${subsExtFile}.ass`;
+                                    if(argv.dlsubs == 'all' || argv.dlsubs == sLang){
+                                        fs.writeFileSync(subsParsed.file,subsParsed.src);
+                                        delete subsParsed.src;
+                                        console.log(`[INFO] Downloaded: ${subsParsed.file}`);
+                                        sxList.push(subsParsed);
+                                    }
+                                    else{
+                                        console.log(`[INFO] Download skipped: ${subsParsed.file}`);
+                                    }
                                 }
+                            }
+                            else{
+                                console.log(`[WARN] Failed to download subtitles #${subsId} ${subsTt}`);
                             }
                         }
                     }
                 }
-                if(sxList.length>0){
-                    // console.log(yaml.stringify(sxList));
+                else{
+                    console.log(`[WARN] Failed to get subtitles list using old api!`);
                 }
             }
             else{
-                console.log(`[ERR] Can't get video id for subtitles list!`);
+                console.log(`[ERROR] Can't get video id for subtitles list!`);
             }
         }
         else if(mediaData.subtitles.length > 0){
             for( s of mediaData.subtitles ){
                 let subsAssApi = await getData(s.url);
-                if(subsAssApi.ok){
-                    let subsParsed = {};
-                    subsParsed.id = s.url.match(/_(\d+)\.txt\?/)[1];
-                    subsParsed.langCode = s.language.match(/(\w{2})(\w{2})/);
-                    subsParsed.langCode = `${subsParsed.langCode[1]} - ${subsParsed.langCode[2]}`.toLowerCase();
-                    subsParsed.langStr  = langCodes[subsParsed.langCode][1];
-                    subsParsed.langCode = langCodes[subsParsed.langCode][0];
-                    subsParsed.title    = subsAssApi.res.body.split('\r\n')[1].replace(/^Title: /,'');
-                    let subsExtFile = [
-                        subsParsed.id,
-                        subsParsed.langCode,
-                        subsParsed.langStr
-                    ].join(' ');
-                    let subsFile = `${fnOutput}.${subsExtFile}.ass`;
-                    fs.writeFileSync(subsFile,subsAssApi.res.body);
-                    console.log(`[INFO] Downloaded: ${subsFile}`);
-                    subsParsed.file = subsFile;
-                    sxList.push(subsParsed);
+                let subsParsed = {};
+                subsParsed.id = s.url.match(/_(\d+)\.txt\?/)[1];
+                subsParsed.langCode = s.language.match(/(\w{2})(\w{2})/);
+                subsParsed.langCode = `${subsParsed.langCode[1]} - ${subsParsed.langCode[2]}`.toLowerCase();
+                subsParsed.langStr  = langCodes[subsParsed.langCode][1];
+                subsParsed.langCode = langCodes[subsParsed.langCode][0];
+                let subsExtFile = [
+                    subsParsed.id,
+                    subsParsed.langCode,
+                    subsParsed.langStr
+                ].join(' ');
+                subsParsed.file = `${fnOutput}.${subsExtFile}.ass`;
+                if(argv.dlsubs == 'all' || argv.dlsubs == s.language){
+                    if(subsAssApi.ok){
+                        subsParsed.title = subsAssApi.res.body.split('\r\n')[1].replace(/^Title: /,'');
+                        fs.writeFileSync(subsParsed.file,subsAssApi.res.body);
+                        console.log(`[INFO] Downloaded: ${subsParsed.file}`);
+                        sxList.push(subsParsed);
+                    }
+                    else{
+                        console.log(`[WARN] Downloaded failed: ${subsParsed.file}`);
+                    }
                 }
-            }
-            if(sxList.length>0){
-                // console.log(yaml.stringify(sxList));
+                else{
+                    console.log(`[INFO] Downloaded skipped: ${subsParsed.file}`);
+                }
             }
         }
     }
@@ -794,10 +817,15 @@ async function getMedia(mMeta){
 }
 
 async function muxStreams(){
+    // skip if no ts
+    if(!isFile(`${fnOutput}.ts`)){
+        console.log(`[INFO] TS file not found, skip muxing video...\n`);
+        return;
+    }
     // fix variables
     let audioDub = audDubT != '' ? audDubT:
             (audDubE != '' ? audDubE : argv.dub);
-    const addSubs = argv.mks && sxList.length > 0 && !argv.mp4 ? true : false;
+    const addSubs = argv.mks && sxList.length > 0 ? true : false;
     // ftag
     argv.ftag = argv.ftag ? argv.ftag : argv.a;
     argv.ftag = shlp.cleanupFilename(argv.ftag);
@@ -817,7 +845,7 @@ async function muxStreams(){
         mkvmux.push(`--output`,`${fnOutput}.mkv`);
         mkvmux.push(`--disable-track-statistics-tags`,`--engage`,`no_variable_data`);
         // video
-        mkvmux.push(`--track-name`,`0:[${argv.ftag}]`);
+        mkvmux.push(`--track-name`,`0:[${argv.ftag}`);
         mkvmux.push(`--language`,`1:${audioDub}`);
         mkvmux.push(`--video-tracks`,`0`,`--audio-tracks`,`1`);
         mkvmux.push(`--no-subtitles`,`--no-attachments`);
@@ -827,7 +855,6 @@ async function muxStreams(){
             for(let t in sxList){
                 mkvmux.push(`--track-name`,`0:${sxList[t].langStr} / ${sxList[t].title}`);
                 mkvmux.push(`--language`,`0:${sxList[t].langCode}`);
-                mkvmux.push(`--default-track`,`0:no`);
                 mkvmux.push(`${sxList[t].file}`);
             }
         }
@@ -835,14 +862,33 @@ async function muxStreams(){
         shlp.exec(`mkvmerge`,`"${cfg.bin.mkvmerge}"`,`@"${fnOutput}.json"`);
         fs.unlinkSync(fnOutput+`.json`);
     }
-    else if(argv.mp4 && cfg.bin.ffmpeg){
-        let ffmux = `-i "${fnOutput}.ts" `;
-            ffmux += `-map 0 -c:v copy -c:a copy `;
-            ffmux += `-metadata encoding_tool="no_variable_data" `;
-            ffmux += `-metadata:s:v:0 title="[${argv.ftag}]" -metadata:s:a:0 language=${audioDub} `;
-            ffmux += `"${fnOutput}.mp4"`;
-        // mux to mkv
-        try{ shlp.exec(`ffmpeg`,`"${cfg.bin.ffmpeg}"`,ffmux); }catch(e){}
+    else if(cfg.bin.ffmpeg){
+        let ffmux  = [], ffext = !argv.mp4 ? `mkv` : `mp4`;
+            ffsubs = addSubs ? true : false; // && !argv.mp4
+        ffmux.push(`-i`,`"${fnOutput}.ts"`);
+        if(ffsubs){
+            for(let t in sxList){
+                ffmux.push(`-i`,`"${sxList[t].file}"`);
+            }
+        }
+        ffmux.push(`-map 0:0 -c:v copy`);
+        ffmux.push(`-map 0:1 -c:a copy`);
+        if(ffsubs){
+            for(let t in sxList){
+                ffmux.push(`-map ${parseInt(t)+1}`,`-c:s`,(!argv.mp4?`copy`:`mov_text`));
+            }
+        }
+        ffmux.push(`-metadata`,`encoding_tool="no_variable_data"`);
+        ffmux.push(`-metadata:s:v:0`,`title="[${argv.ftag.replace(/"/g,"'")}]"`);
+        ffmux.push(`-metadata:s:a:0`,`language=${audioDub}`);
+        if(ffsubs){
+            for(let t in sxList){
+                ffmux.push(`-metadata:s:s:${t}`,`language=${sxList[t].langCode}`);
+                ffmux.push(`-metadata:s:s:${t}`,`title="${sxList[t].langStr} / ${sxList[t].title}"`);
+            }
+        }
+        ffmux.push(`"${fnOutput}.${ffext}"`);
+        try{ shlp.exec(`ffmpeg`,`"${cfg.bin.ffmpeg}"`,ffmux.join(' ')); }catch(e){}
     }
     else{
         console.log(`\n[INFO] Done!\n`);
