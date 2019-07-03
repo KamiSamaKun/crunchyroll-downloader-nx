@@ -1,8 +1,9 @@
-#Crunchyroll Downloader NX configuration v2
+#Crunchyroll Downloader NX configuration v3
 bin:
-  ffmpeg: ${__dirname}/modules/ffmpeg
-  mkvmerge: ${__dirname}/modules/mkvtoolnix/mkvmerge
+  ffmpeg: ${__dirname}/bin/ffmpeg
+  mkvmerge: ${__dirname}/bin/mkvmerge
 dir:
+  fonts: ${__dirname}/fonts/
   content: ${__dirname}/videos/
   trash: ${__dirname}/videos/_trash/
 cli:

@@ -9,6 +9,8 @@ ffmpeg
 config.session.yml
 config.titles.yml
 package-lock.json
+*.ttf
+*.otf
 *.txt
 *.exe
 *.dll

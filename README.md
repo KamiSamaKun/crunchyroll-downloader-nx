@@ -16,8 +16,8 @@ This application is not endorsed by or affiliated with *Crunchyroll*. This appli
 ### Paths Configuration
 
 By default this application uses the following paths to programs (main executables):
-* `./modules/mkvtoolnix/mkvmerge`
-* `./modules/ffmpeg`
+* `./bin/mkvmerge`
+* `./bin/ffmpeg`
 
 To change these paths you need to edit `config.main.yml` in `./modules/` directory.
 
@@ -31,6 +31,10 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 ### Authentication
 
 * `--auth` enter auth mode
+
+### Fonts
+
+* `--dlfonts` download all required fonts for mkv muxing to fonts folder
 
 ### Get Show ID
 

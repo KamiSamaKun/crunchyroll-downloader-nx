@@ -26,6 +26,7 @@ const xhtml2js = shlp.xhtml2js;
 // m3u8 and subs
 const m3u8 = require('m3u8-parsed');
 const streamdl = require('hls-download');
+const fontsData = require(modulesFolder+'/module.fontsData');
 const crunchySubs = require(modulesFolder+'/module.crunchySubs');
 
 // params
@@ -100,11 +101,13 @@ let argv = yargs
     .wrap(Math.min(100))
     .usage('Usage: $0 [options]')
     .help(false).version(false)
+    // auth
+    .describe('auth','Enter auth mode')
+    // fonts
+    .describe('dlfonts','Download all required fonts for mkv muxing')
     // search
     .describe('search','Search show ids')
     .describe('search2','Search show ids (multi-language, experimental)')
-    // auth
-    .describe('auth','Enter auth mode')
     // req params
     .describe('s','Sets the show id')
     .describe('e','Select episode ids (comma-separated, hyphen-sequence)')
@@ -205,6 +208,9 @@ const api = {
 if(argv.auth){
     doAuth();
 }
+else if(argv.dlfonts){
+    getFonts();
+}
 else if(argv.search && argv.search.length > 2){
     doSearch();
 }
@@ -219,7 +225,6 @@ else{
     process.exit();
 }
 
-// auth
 async function doAuth(){
     console.log(`[INFO] Authentication`);
     const iLogin = await shlp.question(`[Q] LOGIN/EMAIL`);
@@ -235,6 +240,32 @@ async function doAuth(){
     }
     setNewCookie(auth.res.headers['set-cookie'], true);
     console.log(`[INFO] Authentication successful!`);
+}
+
+async function getFonts(){
+    console.log(`[INFO] Downloading fonts...`);
+    for(let f of Object.keys(fontsData.fonts)){
+        let fontFile = fontsData.fonts[f];
+        let fontLoc  = path.join(cfg.dir.fonts, fontFile);
+        if(fs.existsSync(fontLoc) && fs.statSync(fontLoc).size != 0){
+            console.log(`[INFO] ${f} (${fontFile}) already downloaded!`);
+        }
+        else{
+            if(fs.existsSync(fontLoc) && fs.statSync(fontLoc).size == 0){
+                fs.unlinkSync(fontLoc);
+            }
+            let fontUrl = fontsData.root + fontFile;
+            let getFont = await getData(fontUrl, { useProxy: true, skipCookies: true, binary: true });
+            if(getFont.ok){
+                fs.writeFileSync(fontLoc, getFont.res.body);
+                console.log(`[INFO] Downloaded: ${f} (${fontFile})`);
+            }
+            else{
+                console.log(`[WARN] Failed to download: ${f} (${fontFile})`);
+            }
+        }
+    }
+    console.log(`[INFO] All required fonts downloaded!`);
 }
 
 async function doSearch(){
@@ -779,6 +810,7 @@ async function getMedia(mMeta){
                 let subsAssApi = await getData(s.url);
                 let subsParsed = {};
                 subsParsed.id = s.url.match(/_(\d+)\.txt\?/)[1];
+                subsParsed.fonts = fontsData.assFonts(subsAssApi.res.body);
                 subsParsed.langCode = s.language.match(/(\w{2})(\w{2})/);
                 subsParsed.langCode = `${subsParsed.langCode[1]} - ${subsParsed.langCode[2]}`.toLowerCase();
                 subsParsed.langStr  = langCodes[subsParsed.langCode][1];
@@ -792,7 +824,7 @@ async function getMedia(mMeta){
                 if(argv.dlsubs == 'all' || argv.dlsubs == s.language){
                     if(subsAssApi.ok){
                         subsParsed.title = subsAssApi.res.body.split('\r\n')[1].replace(/^Title: /,'');
-                        fs.writeFileSync(subsParsed.file,subsAssApi.res.body);
+                        fs.writeFileSync(subsParsed.file, subsAssApi.res.body);
                         console.log(`[INFO] Downloaded: ${subsParsed.file}`);
                         sxList.push(subsParsed);
                     }
@@ -838,6 +870,13 @@ async function muxStreams(){
         console.log((cfg.bin.mkvmerge?`\n`:``)+`[WARN] FFmpeg not found, skip using this...`);
         cfg.bin.ffmpeg = false;
     }
+    // collect fonts info
+    let fontsList = [];
+    for(let s of sxList){
+        fontsList = fontsList.concat(s.fonts);
+    }
+    fontsList = [...new Set(fontsList)];
+    console.log(`\n[INFO] Required fonts:`,fontsList.join(', '));
     // mux to mkv
     if(!argv.mp4 && cfg.bin.mkvmerge){
         let mkvmux  = [];
@@ -852,10 +891,22 @@ async function muxStreams(){
         mkvmux.push(`${fnOutput}.ts`);
         // subtitles
         if(addSubs){
-            for(let t in sxList){
-                mkvmux.push(`--track-name`,`0:${sxList[t].langStr} / ${sxList[t].title}`);
-                mkvmux.push(`--language`,`0:${sxList[t].langCode}`);
-                mkvmux.push(`${sxList[t].file}`);
+            for(let t of sxList){
+                mkvmux.push(`--track-name`,`0:${t.langStr} / ${t.title}`);
+                mkvmux.push(`--language`,`0:${t.langCode}`);
+                mkvmux.push(`${t.file}`);
+            }
+        }
+        if(addSubs){
+            for(let f of fontsList){
+                let fontFile = fontsData.fonts[f];
+                if(fontFile){
+                    let fontLoc  = path.join(cfg.dir.fonts, fontFile);
+                    if(fs.existsSync(fontLoc) && fs.statSync(fontLoc).size != 0){
+                        mkvmux.push(`--attachment-name`,fontFile);
+                        mkvmux.push(`--attach-file`,fontLoc);
+                    }
+                }
             }
         }
         fs.writeFileSync(`${fnOutput}.json`,JSON.stringify(mkvmux,null,'  '));
@@ -865,10 +916,11 @@ async function muxStreams(){
     else if(cfg.bin.ffmpeg){
         let ffmux  = [], ffext = !argv.mp4 ? `mkv` : `mp4`;
             ffsubs = addSubs ? true : false; // && !argv.mp4
+        let ffatt = [];
         ffmux.push(`-i`,`"${fnOutput}.ts"`);
         if(ffsubs){
-            for(let t in sxList){
-                ffmux.push(`-i`,`"${sxList[t].file}"`);
+            for(let t of sxList){
+                ffmux.push(`-i`,`"${t.file}"`);
             }
         }
         ffmux.push(`-map 0:0 -c:v copy`);
@@ -878,14 +930,40 @@ async function muxStreams(){
                 ffmux.push(`-map ${parseInt(t)+1}`,`-c:s`,(!argv.mp4?`copy`:`mov_text`));
             }
         }
+        if(addSubs && ffext == 'mkv'){
+            let attIndex = 0;
+            for(let f of fontsList){
+                let fontFile = fontsData.fonts[f];
+                if(fontFile){
+                    let fontLoc  = path.join(cfg.dir.fonts, fontFile);
+                    let fontMime = 'application/octet-stream';
+                    if(fontFile.match(/\.otf$/)){
+                        fontMime = 'application/vnd.ms-opentype';
+                    }
+                    if(fontFile.match(/\.ttf$/)){
+                        fontMime = 'application/x-truetype-font';
+                    }
+                    if(fs.existsSync(fontLoc) && fs.statSync(fontLoc).size != 0){
+                        ffmux.push(`-attach`,`"${fontLoc}"`);
+                        ffatt.push(`-metadata:s:t:${attIndex}`,`"mimetype=${fontMime}"`);
+                        ffatt.push(`-metadata:s:t:${attIndex}`,`filename="${fontFile}"`);
+                        attIndex++;
+                    }
+                }
+            }
+        }
         ffmux.push(`-metadata`,`encoding_tool="no_variable_data"`);
         ffmux.push(`-metadata:s:v:0`,`title="[${argv.ftag.replace(/"/g,"'")}]"`);
         ffmux.push(`-metadata:s:a:0`,`language=${audioDub}`);
         if(ffsubs){
             for(let t in sxList){
-                ffmux.push(`-metadata:s:s:${t}`,`language=${sxList[t].langCode}`);
-                ffmux.push(`-metadata:s:s:${t}`,`title="${sxList[t].langStr} / ${sxList[t].title}"`);
+                let tx = sxList[t];
+                ffmux.push(`-metadata:s:s:${t}`,`language=${tx.langCode}`);
+                ffmux.push(`-metadata:s:s:${t}`,`title="${tx.langStr} / ${tx.title}"`);
             }
+        }
+        if(ffatt.length > 0){
+            ffmux = ffmux.concat(ffatt);
         }
         ffmux.push(`"${fnOutput}.${ffext}"`);
         try{ shlp.exec(`ffmpeg`,`"${cfg.bin.ffmpeg}"`,ffmux.join(' ')); }catch(e){}
@@ -932,6 +1010,10 @@ async function getData(durl, params){
         headers: {},
         url: durl
     };
+    // set binary
+    if(params.binary == true){
+        options.encoding = null;
+    }
     // set headers
     if(params.headers){
         options.headers = params.headers;

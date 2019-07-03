@@ -74,11 +74,13 @@ function parse(meta, src){
         wrap:  xml[0].attribs.wrap_style
     }
     // get header data
-    subsMeta.src  = getASSHeader(headerData);
-    // get styles
-    subsMeta.src += getASSStyles(xml.find('styles'));
+    subsMeta.src   = getASSHeader(headerData);
+    // get styles and fonts
+    let stylesAndFonts = getASSStylesAndFonts(xml.find('styles'));
+    subsMeta.fonts = stylesAndFonts.fonts;
+    subsMeta.src  += stylesAndFonts.styles;
     // get dialogs
-    subsMeta.src += getASSDialogs(xml.find('events'));
+    subsMeta.src  += getASSDialogs(xml.find('events'));
     // save subtitle
     return subsMeta;
 }
@@ -104,7 +106,7 @@ function getASSHeader(data){
     ];
     return src.join('\r\n');
 }
-function getASSStyles(data){
+function getASSStylesAndFonts(data){
     let src = [
         '',
         '[V4+ Styles]',
@@ -112,9 +114,11 @@ function getASSStyles(data){
         + 'Bold,Italic,Underline,Strikeout,ScaleX,ScaleY,Spacing,Angle,'
         + 'BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding' )
     ];
+    let fontsList = [];
     let styleList = data.find('style');
     for(let i=0;i<styleList.length;i++){
         let s = styleList[i].attribs;
+        fontsList.push(s.font_name);
         let x = 'Style: ' + [
             s.name,
             s.font_name,
@@ -143,7 +147,10 @@ function getASSStyles(data){
         src.push(x);
     }
     src.push('');
-    return src.join('\r\n');
+    return {
+        styles: src.join('\r\n'),
+        fonts: [...new Set(fontsList)],
+    };
 }
 function getASSDialogs(data){
     let src = [

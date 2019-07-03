@@ -1,5 +1,12 @@
 ## Change Log
 
+### 4.7.0 (2019/07/04)
+- FFMPEG and MKVMerge moved to `bin` folder
+- Added `fonts` folder
+- Added `--dlfonts` option to download required fonts
+- Updated configuration file
+- Update dependencies
+
 ### 4.5.1 (2019/06/27)
 - Small fix
 
