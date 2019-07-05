@@ -919,12 +919,12 @@ async function muxStreams(){
         let ffmap = [], ffmeta = [];
         ffmux.push(`-i`,`"${fnOutput}.ts"`);
         if(ffsubs){
-            let ti = 1;
+            let ti = 0;
             for(let t of sxList){
                 ffmux.push(`-i`,`"${t.file}"`);
-                ffmap.push(`-map ${ti}`,`-c:s`,(!argv.mp4?`copy`:`mov_text`));
-                ffmeta.push(`-metadata:s:s:${ti-1}`,`language=${t.langCode}`);
-                ffmeta.push(`-metadata:s:s:${ti-1}`,`title="${t.langStr} / ${t.title}"`);
+                ffmap.push(`-map ${ti+1}`,`-c:s`,(!argv.mp4?`copy`:`mov_text`));
+                ffmeta.push(`-metadata:s:s:${ti}`,`language=${t.langCode}`);
+                ffmeta.push(`-metadata:s:s:${ti}`,`title="${t.langStr} / ${t.title}"`);
                 ti++;
             }
         }
