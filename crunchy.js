@@ -916,37 +916,32 @@ async function muxStreams(){
     else if(cfg.bin.ffmpeg){
         let ffmux  = [], ffext = !argv.mp4 ? `mkv` : `mp4`;
             ffsubs = addSubs ? true : false; // && !argv.mp4
-        let ffatt = [];
+        let ffmap = [], ffmeta = [];
         ffmux.push(`-i`,`"${fnOutput}.ts"`);
         if(ffsubs){
+            let ti = 1;
             for(let t of sxList){
                 ffmux.push(`-i`,`"${t.file}"`);
+                ffmap.push(`-map ${ti}`,`-c:s`,(!argv.mp4?`copy`:`mov_text`));
+                ffmeta.push(`-metadata:s:s:${ti}`,`language=${t.langCode}`);
+                ffmeta.push(`-metadata:s:s:${ti}`,`title="${t.langStr} / ${t.title}"`);
+                ti++;
             }
         }
         ffmux.push(`-map 0:0 -c:v copy`);
         ffmux.push(`-map 0:1 -c:a copy`);
-        if(ffsubs){
-            for(let t in sxList){
-                ffmux.push(`-map ${parseInt(t)+1}`,`-c:s`,(!argv.mp4?`copy`:`mov_text`));
-            }
-        }
-        if(addSubs && ffext == 'mkv'){
+        ffmux = ffmux.concat(ffmap);
+        if(ffsubs && ffext == 'mkv'){
             let attIndex = 0;
             for(let f of fontsList){
                 let fontFile = fontsData.fonts[f];
                 if(fontFile){
                     let fontLoc  = path.join(cfg.dir.fonts, fontFile);
-                    let fontMime = 'application/octet-stream';
-                    if(fontFile.match(/\.otf$/)){
-                        fontMime = 'application/vnd.ms-opentype';
-                    }
-                    if(fontFile.match(/\.ttf$/)){
-                        fontMime = 'application/x-truetype-font';
-                    }
+                    let fontMime = fontMime(fontFile);
                     if(fs.existsSync(fontLoc) && fs.statSync(fontLoc).size != 0){
                         ffmux.push(`-attach`,`"${fontLoc}"`);
-                        ffatt.push(`-metadata:s:t:${attIndex}`,`"mimetype=${fontMime}"`);
-                        ffatt.push(`-metadata:s:t:${attIndex}`,`filename="${fontFile}"`);
+                        ffmeta.push(`-metadata:s:t:${attIndex}`,`mimetype="${fontMime}"`);
+                        ffmeta.push(`-metadata:s:t:${attIndex}`,`filename="${fontFile}"`);
                         attIndex++;
                     }
                 }
@@ -955,16 +950,7 @@ async function muxStreams(){
         ffmux.push(`-metadata`,`encoding_tool="no_variable_data"`);
         ffmux.push(`-metadata:s:v:0`,`title="[${argv.ftag.replace(/"/g,"'")}]"`);
         ffmux.push(`-metadata:s:a:0`,`language=${audioDub}`);
-        if(ffsubs){
-            for(let t in sxList){
-                let tx = sxList[t];
-                ffmux.push(`-metadata:s:s:${t}`,`language=${tx.langCode}`);
-                ffmux.push(`-metadata:s:s:${t}`,`title="${tx.langStr} / ${tx.title}"`);
-            }
-        }
-        if(ffatt.length > 0){
-            ffmux = ffmux.concat(ffatt);
-        }
+        ffmux = ffmux.concat(ffmeta);
         ffmux.push(`"${fnOutput}.${ffext}"`);
         try{ shlp.exec(`ffmpeg`,`"${cfg.bin.ffmpeg}"`,ffmux.join(' ')); }catch(e){}
     }
@@ -999,6 +985,16 @@ function isFile(file){
     catch(e){
         return false;
     }
+}
+
+function fontMime(fontFile){
+    if(fontFile.match(/\.otf$/)){
+        return 'application/vnd.ms-opentype';
+    }
+    if(fontFile.match(/\.ttf$/)){
+        return 'application/x-truetype-font';
+    }
+    return 'application/octet-stream';
 }
 
 // get url
