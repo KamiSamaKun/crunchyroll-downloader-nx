@@ -1,4 +1,4 @@
-#Crunchyroll Downloader NX configuration v3
+#Crunchyroll Downloader NX configuration v4
 bin:
   ffmpeg: ${__dirname}/bin/ffmpeg
   mkvmerge: ${__dirname}/bin/mkvmerge
@@ -17,4 +17,7 @@ cli:
   nServer: 1
   oldSubs: false
   dlSubs: all
+  proxy: false
+  proxy_auth: false
+  proxy_ssp: false
 #eof

@@ -137,6 +137,14 @@ let argv = yargs
     .alias('skipdl','novids')
     .describe('skipmux','Skip muxing video and subtitles')
     .boolean('skipmux')
+    // proxy
+    .describe('proxy','Set http(s)/socks proxy WHATWG url')
+    .default('proxy', (cfg.cli.proxy?cfg.cli.proxy:false))
+    .describe('proxy-auth','Colon-separated username and password for proxy')
+    .default('proxy-auth', (cfg.cli.proxy_auth?cfg.cli.proxy_auth:false))
+    .describe('ssp','Don\'t use proxy for stream downloading')
+    .boolean('ssp')
+    .default('ssp', (cfg.cli.proxy_ssp?cfg.cli.proxy_ssp:false))
     // muxing
     .describe('mp4','Mux into mp4')
     .boolean('mp4')
@@ -1104,7 +1112,7 @@ function buildProxyUrl(proxyBaseUrl,proxyAuth){
     if(typeof proxyCfg.hostname != 'string' || typeof proxyCfg.port != 'string'){
         throw new Error();
     }
-    if(proxyAuth && proxyAuth.match(':')){
+    if(proxyAuth && typeof proxyAuth == 'string' && proxyAuth.match(':')){
         proxyCfg.auth = proxyAuth;
     }
     return url.format({

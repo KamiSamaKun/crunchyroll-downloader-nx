@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.7.2 (2019/07/06)
+- Updated configuration file
+
 ### 4.7.1 (2019/07/06)
 - Code optimization
 
