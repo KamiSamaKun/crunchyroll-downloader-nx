@@ -78,5 +78,16 @@ function assFonts(ass){
     return [...new Set(styles)];
 }
 
+// font mime type
+function fontMime(fontFile){
+    if(fontFile.match(/\.otf$/)){
+        return 'application/vnd.ms-opentype';
+    }
+    if(fontFile.match(/\.ttf$/)){
+        return 'application/x-truetype-font';
+    }
+    return 'application/octet-stream';
+}
+
 // output
-module.exports = { root, fonts, assFonts };
+module.exports = { root, fonts, assFonts, fontMime };

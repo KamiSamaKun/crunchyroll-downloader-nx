@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.7.1 (2019/07/06)
+- Code optimization
+
 ### 4.7.0 (2019/07/04)
 - FFMPEG and MKVMerge moved to `bin` folder
 - Added `fonts` folder

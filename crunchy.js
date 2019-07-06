@@ -937,7 +937,7 @@ async function muxStreams(){
                 let fontFile = fontsData.fonts[f];
                 if(fontFile){
                     let fontLoc  = path.join(cfg.dir.fonts, fontFile);
-                    let fontMime = fontMime(fontFile);
+                    let fontMime = fontsData.fontMime(fontFile);
                     if(fs.existsSync(fontLoc) && fs.statSync(fontLoc).size != 0){
                         ffmux.push(`-attach`,`"${fontLoc}"`);
                         ffmeta.push(`-metadata:s:t:${attIndex}`,`mimetype="${fontMime}"`);
@@ -985,16 +985,6 @@ function isFile(file){
     catch(e){
         return false;
     }
-}
-
-function fontMime(fontFile){
-    if(fontFile.match(/\.otf$/)){
-        return 'application/vnd.ms-opentype';
-    }
-    if(fontFile.match(/\.ttf$/)){
-        return 'application/x-truetype-font';
-    }
-    return 'application/octet-stream';
 }
 
 // get url
