@@ -1,4 +1,4 @@
-#Crunchyroll Downloader NX configuration v4
+#Crunchyroll Downloader NX configuration v5
 bin:
   ffmpeg: ${__dirname}/bin/ffmpeg
   mkvmerge: ${__dirname}/bin/mkvmerge
@@ -7,7 +7,9 @@ dir:
   content: ${__dirname}/videos/
   trash: ${__dirname}/videos/_trash/
 cli:
+  filenameTemplate: "[{rel_group}] {title} - {ep_num} [{suffix}]"
   releaseGroup: CR
+  epNumLength: 2
   fileSuffix: SIZEp
   videoQuality: 720p
   dubLanguage: jpn

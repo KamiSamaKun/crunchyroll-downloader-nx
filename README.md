@@ -67,9 +67,11 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 
 ### Filenaming (optional)
 
-* `-a <s>` release group ("CR" by default)
+* `--filename <s>` filenaming template
+* `-a <s>` release group
 * `-t <s>` show title override
 * `--ep <s>` episode number override (ignored in batch mode)
+* `--el <i>` episode number length [1...4]
 * `--suffix <s>` filename suffix override (first "SIZEp" will be replaced with actual video size, "SIZEp" by default)
 
 ### Utility
@@ -80,7 +82,10 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 
 ## Filename Template
 
-[`release group`] `title` - `episode` [`suffix`].`extension`
+* `{rel_group}` replace string from `-a` option
+* `{title}` replace string by title or from `-t` option
+* `{ep_num}` replace string by episode number
+* `{suffix}` replace string from `--suffix` option
 
 ## CLI Examples
 

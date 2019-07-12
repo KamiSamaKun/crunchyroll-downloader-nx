@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.8.0 (2019/07/12)
+- Added filename template changing
+
 ### 4.7.2 (2019/07/06)
 - Updated configuration file
 

@@ -153,10 +153,15 @@ let argv = yargs
     .boolean('mks')
     .default('mks',cfg.cli.muxSubs)
     // set title
+    .describe('filename','Filenaming: Template')
+    .default('filename',cfg.cli.filenameTemplate)
     .describe('a','Filenaming: Release group')
     .default('a',cfg.cli.releaseGroup)
     .describe('t','Filenaming: Series title override')
     .describe('ep','Filenaming: Episode number override (ignored in batch mode)')
+    .describe('el','Filenaming: Episode number length')
+    .choices('el', [1, 2, 3, 4])
+    .default('el',cfg.cli.epNumLength)
     .describe('suffix','Filenaming: Filename suffix override (first "SIZEp" will be replaced with actual video size)')
     .default('suffix',cfg.cli.fileSuffix)
     // util
@@ -570,13 +575,13 @@ async function getMedia(mMeta){
     let epNum = mMeta.e;
     let metaEpNum = mediaData.metadata.episode_number;
     if(metaEpNum != '' && metaEpNum !== null){
-        epNum = metaEpNum.match(/^\d+$/) ? metaEpNum.padStart(2,'0') : metaEpNum;
+        epNum = metaEpNum.match(/^\d+$/) ? metaEpNum.padStart(argv.el,'0') : metaEpNum;
     }
     
     fnTitle = argv.t ? argv.t : mMeta.t;
     fnEpNum = !isBatch && argv.ep ? argv.ep : epNum;
     fnSuffix = argv.suffix.replace('SIZEp',argv.q);
-    fnOutput = shlp.cleanupFilename(`[${argv.a}] ${fnTitle} - ${fnEpNum} [${fnSuffix}]`);
+    fnOutput = fnOutputGen();
     let hlsStream = '', getOldSubs = false;
     
     let streams = mediaData.streams;
@@ -679,7 +684,7 @@ async function getMedia(mMeta){
             console.log(`[INFO] Stream URL:`,videoUrl);
             // filename
             fnSuffix = argv.suffix.replace('SIZEp',argv.q);
-            fnOutput = shlp.cleanupFilename(`[${argv.a}] ${fnTitle} - ${fnEpNum} [${fnSuffix}]`);
+            fnOutput = fnOutputGen();
             console.log(`[INFO] Output filename: ${fnOutput}`);
             if(argv.skipdl){
                 console.log(`[INFO] Video download skipped!\n`);
@@ -993,6 +998,14 @@ function isFile(file){
     catch(e){
         return false;
     }
+}
+function fnOutputGen(){
+    const fnPrepOutput = argv.filename
+        .replace('{rel_group}', argv.a)
+        .replace('{title}', fnTitle)
+        .replace('{ep_num}', fnEpNum)
+        .replace('{suffix}', fnSuffix);
+    return shlp.cleanupFilename(fnPrepOutput);
 }
 
 // get url
