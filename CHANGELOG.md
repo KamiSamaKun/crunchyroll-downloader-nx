@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.9.0 (2019/07/17)
+- Force use proxy for all requests, except if `--ssp` is used for selected requests
+
 ### 4.8.0 (2019/07/12)
 - Added filename template changing
 

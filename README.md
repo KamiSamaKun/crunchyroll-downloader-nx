@@ -57,7 +57,7 @@ After installing NodeJS with NPM go to directory with `package.json` file and ty
 
 * `--proxy <s>` http(s)/socks proxy WHATWG url (ex. https://myproxyhost:1080)
 * `--proxy-auth <s>` colon-separated username and password for proxy
-* `--ssp` don't use proxy for stream downloading
+* `--ssp` don't use proxy for stream and subtitles downloading
 
 ### Muxing
 

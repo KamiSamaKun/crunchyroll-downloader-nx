@@ -142,7 +142,7 @@ let argv = yargs
     .default('proxy', (cfg.cli.proxy?cfg.cli.proxy:false))
     .describe('proxy-auth','Colon-separated username and password for proxy')
     .default('proxy-auth', (cfg.cli.proxy_auth?cfg.cli.proxy_auth:false))
-    .describe('ssp','Don\'t use proxy for stream downloading')
+    .describe('ssp','Don\'t use proxy for stream and subtitles downloading')
     .boolean('ssp')
     .default('ssp', (cfg.cli.proxy_ssp?cfg.cli.proxy_ssp:false))
     // muxing
@@ -323,7 +323,7 @@ async function doSearch(){
         }
     }
     // request
-    let aniList = await getData(`${api.search3}?${params.toString()}`);
+    let aniList = await getData(`${api.search3}?${params.toString()}`,{useProxy:true});
     if(!aniList.ok){
         console.log(`[ERROR] Can't get search data!`);
         return;
@@ -356,7 +356,7 @@ async function printSeasons(a,apiSession){
         offset:     0,
         locale:     'enUS',
     });
-    let seasonList = await getData(`${api.collectins}?${collParams.toString()}`);
+    let seasonList = await getData(`${api.collectins}?${collParams.toString()}`,{useProxy:true});
     if(seasonList.ok){
         seasonList = JSON.parse(seasonList.res.body);
         if(seasonList.error){
@@ -388,7 +388,7 @@ async function doSearch2(){
     });
     // request
     let reqAniSearch  = await getData(`${api.search2}?${params.toString()}`,{useProxy:true});
-    let reqRefAniList = await getData(`${api.search1}`);
+    let reqRefAniList = await getData(`${api.search1}`,{useProxy:true});
     if(!reqAniSearch.ok || !reqRefAniList.ok){ return; }
     // parse fix
     let aniSearchSec  = reqAniSearch.res.body.replace(/^\/\*-secure-\n(.*)\n\*\/$/,'$1');
@@ -428,7 +428,7 @@ async function doSearch2(){
 
 async function getShowById(){
     const epListRss = `${api.rss_cid}${argv.s}`;
-    const epListReq = await getData(epListRss);
+    const epListReq = await getData(epListRss,{useProxy:true});
     if(!epListReq.ok){ return 0; }
     const src = epListReq.res.body;
     // title
@@ -553,7 +553,7 @@ async function getMedia(mMeta){
         audDubE = dubLangs[mMeta.te.match(dubRegex)[1]];
         console.log(`[INFO] audio language code detected, setted to ${audDubE} for this episode`);
     }
-    const mediaPage = await getData(`${api.media_page}${mMeta.m}`);
+    const mediaPage = await getData(`${api.media_page}${mMeta.m}`,{useProxy:true});
     if(!mediaPage.ok){ return; }
     
     let redirs = mediaPage.res.redirectUrls;
@@ -612,7 +612,7 @@ async function getMedia(mMeta){
     else{
         // get
         console.log(`[INFO] Downloading video...`);
-        let streamPlaylist = await getData(hlsStream);
+        let streamPlaylist = await getData(hlsStream,{useProxy:(argv.ssp?false:true)});
         if(!streamPlaylist.ok){
             console.log(`[ERROR] CAN'T FETCH VIDEO PLAYLISTS!`);
             return;
@@ -691,7 +691,7 @@ async function getMedia(mMeta){
             }
             else{
                 // request
-                let chunkPage = await getData(videoUrl);
+                let chunkPage = await getData(videoUrl,{useProxy:(argv.ssp?false:true)});
                 if(!chunkPage.ok){
                     console.log(`[ERROR] CAN'T FETCH VIDEO PLAYLIST!`);
                     argv.skipmux = true;
@@ -753,7 +753,7 @@ async function getMedia(mMeta){
                     aff:           'crunchyroll-website',
                     current_page:  domain
                 });
-                let streamData = await getData(`${domain}/xml/?${reqParams.toString()}`);
+                let streamData = await getData(`${domain}/xml/?${reqParams.toString()}`,{useProxy:true});
                 if(!streamData.ok){
                     console.log(streamData);
                     mediaIdSubs = '0';
@@ -778,7 +778,7 @@ async function getMedia(mMeta){
                         if(subsListXml[s].tagName=='subtitle'){
                             let subsId = subsListXml[s].attribs.id;
                             let subsTt = subsListXml[s].attribs.title;
-                            let subsXmlApi = await getData(`${api.subs_file}${subsId}`);
+                            let subsXmlApi = await getData(`${api.subs_file}${subsId}`,{useProxy:true});
                             if(subsXmlApi.ok){
                                 let subXml      = crunchySubs.decrypt(subsListXml[s].attribs.id,subsXmlApi.res.body);
                                 if(subXml.ok){
@@ -820,7 +820,7 @@ async function getMedia(mMeta){
         }
         else if(mediaData.subtitles.length > 0){
             for( s of mediaData.subtitles ){
-                let subsAssApi = await getData(s.url);
+                let subsAssApi = await getData(s.url,{useProxy:(argv.ssp?false:true)});
                 let subsParsed = {};
                 subsParsed.id = s.url.match(/_(\d+)\.txt\?/)[1];
                 subsParsed.fonts = fontsData.assFonts(subsAssApi.res.body);
