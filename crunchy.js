@@ -154,7 +154,7 @@ let argv = yargs
     .default('mks',cfg.cli.muxSubs)
     // set title
     .describe('filename','Filenaming: Template')
-    .default('filename',cfg.cli.filenameTemplate)
+    .default('filename', (cfg.cli.filenameTemplate?cfg.cli.filenameTemplate:`[{rel_group}] {title} - {ep_num} [{suffix}]`))
     .describe('a','Filenaming: Release group')
     .default('a',cfg.cli.releaseGroup)
     .describe('t','Filenaming: Series title override')
@@ -1000,7 +1000,7 @@ function isFile(file){
     }
 }
 function fnOutputGen(){
-    const fnPrepOutput = argv.filename
+    const fnPrepOutput = argv.filename.toString()
         .replace('{rel_group}', argv.a)
         .replace('{title}', fnTitle)
         .replace('{ep_num}', fnEpNum)
