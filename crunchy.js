@@ -705,7 +705,11 @@ async function getMedia(mMeta){
                         try{
                             proxyHLS.url = buildProxyUrl(argv.proxy,argv['proxy-auth']);
                         }
-                        catch(e){}
+                        catch(e){
+                            console.log(`\n[WARN] Not valid proxy URL${e.input?' ('+e.input+')':''}!`);
+                            console.log(`[WARN] Skiping...`);
+                            proxyHLS = false;
+                        }
                     }
                     let dldata = await streamdl({
                         fn: fnOutput,
@@ -1043,6 +1047,7 @@ async function getData(durl, params){
         catch(e){
             console.log(`\n[WARN] Not valid proxy URL${e.input?' ('+e.input+')':''}!`);
             console.log(`[WARN] Skiping...`);
+            argv.proxy = false;
         }
     }
     // if auth

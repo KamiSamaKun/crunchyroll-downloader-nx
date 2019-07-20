@@ -1,7 +1,10 @@
 ## Change Log
 
+### 4.9.2 (2019/07/20)
+- Don't show proxy error twice
+
 ### 4.9.1 (2019/07/19)
-- added `--filename` default value if not set in `config.main.yml` file
+- Added `--filename` default value if not set in `config.main.yml` file
 
 ### 4.9.0 (2019/07/17)
 - Force use proxy for all requests, except if `--ssp` is used for selected requests
