@@ -1,5 +1,8 @@
 ## Change Log
 
+### 4.9.3 (2019/07/21)
+- Fixed proxy for stream download
+
 ### 4.9.2 (2019/07/20)
 - Don't show proxy error twice
 

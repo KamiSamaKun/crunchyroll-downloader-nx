@@ -700,9 +700,10 @@ async function getMedia(mMeta){
                     let chunkList = m3u8(chunkPage.res.body);
                     chunkList.baseUrl = videoUrl.split('/').slice(0, -1).join('/')+'/';
                     // proxy
-                    let proxyHLS;
+                    let proxyHLS = false;
                     if(argv.proxy && !argv.ssp){
                         try{
+                            proxyHLS = {};
                             proxyHLS.url = buildProxyUrl(argv.proxy,argv['proxy-auth']);
                         }
                         catch(e){
